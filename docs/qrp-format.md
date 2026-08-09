@@ -8,7 +8,7 @@
 | Fonte | Estado |
 |---|---|
 | PoC `docs/poc/index.html` | presente |
-| Fixture A (NHOQUE BATATA) | **ausente** |
+| Fixture A (NHOQUE BATATA) | presente (`fixtures/qrp/fixture-a.qrp`, `AUDITORIA.QRP`) |
 | Fixture B (MOLHO POMODORO) | presente (`fixtures/qrp/fixture-b.qrp`) |
 
 ## Container QRP → páginas EMF
@@ -47,6 +47,16 @@ Portado de `parseEmfTexts`:
 5. Decimais BR via `brNumber` (agora `BrazilianDecimalParser` → `BigDecimal`).
 6. Total declarado: texto `Total de Vendas:` seguido de valor numérico próximo (Fixture B: `52,986`).
 
+## Fixture A — valores ouro reproduzidos pelo PoC/Java
+
+| Métrica | Valor |
+|---|---|
+| Produto | `35` / `NHOQUE BATATA` |
+| Páginas / linhas | 1 / 15 |
+| Qtd. fonte / parseada | `10.842` / `10.842` |
+| Venda `134808` (1ª linha desse cupom) | `2026-08-07T12:22:13`, qtd `0.51` (texto `0,51`; plano `0.510`), preço `63.90`, desconto `0`, total `32.59` |
+| Filename | `AUDITORIA.QRP` → hints vazios |
+
 ## Fixture B — valores ouro reproduzidos pelo PoC/Java
 
 | Métrica | Valor |
@@ -79,8 +89,8 @@ Hint de filename `01_07-20_07` → período incompleto dia/mês **sem ano**; nã
 
 ## Incertezas ainda abertas
 
-- Fixture A não disponível para regressão cruzada.
-- Chave estável de item além de `(parse_attempt, source_record_index)`.
+- Chave estável de item além de `(parse_attempt, source_record_index)` (Fixture A tem duas linhas com a mesma `Venda Numero: 134808`).
+
 - Semântica oficial de devoluções / cancelamentos.
 - Timezone de negócio (valores tratados como `LocalDateTime` sem offset).
 - Biblioteca EMF Java vs port controlado: o port do PoC reproduz Fixture B; manter port até evidência contrária.

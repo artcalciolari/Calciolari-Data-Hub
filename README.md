@@ -9,8 +9,7 @@ Implementação inicial (Fase 0/2 parcial):
 
 - PoC preservado em `docs/poc/index.html`
 - Parser backend Java portado do PoC (`backend/…/interpdv/qrp`)
-- Fixture B presente com regressão §13.2
-- Fixture A ainda ausente — gate completo da Fase 2 pendente
+- Fixtures A e B presentes com regressão §13.2
 - API HTTP, PostgreSQL e frontend **ainda não** iniciados (conforme plano)
 
 Ver `IMPLEMENTATION_PLAN.md`, `docs/fase-0-status.md` e `docs/qrp-format.md`.

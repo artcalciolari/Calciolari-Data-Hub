@@ -2,7 +2,7 @@
 
 | Id | Arquivo | Estado |
 |---|---|---|
-| `fixture-a` | `qrp/fixture-a.qrp` | ausente |
+| `fixture-a` | `qrp/fixture-a.qrp` | presente (NHOQUE BATATA / produto 35; origem `AUDITORIA.QRP`) |
 | `fixture-b` | `qrp/fixture-b.qrp` | presente (MOLHO POMODORO / produto 41) |
 
 Metadados e valores ouro: `manifest.json`.

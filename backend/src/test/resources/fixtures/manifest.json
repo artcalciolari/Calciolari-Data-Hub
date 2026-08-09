@@ -1,27 +1,34 @@
 {
   "schemaVersion": 1,
-  "packageStatus": "PARTIAL",
-  "packageInstructions": "Fixture B is present. Fixture A (NHOQUE BATATA) is still missing — provide the binary and fill sha256/byteSize after human review.",
+  "packageStatus": "PRESENT",
+  "packageInstructions": "Fixtures A and B are present under fixtures/qrp/. Sensitivity review still pending.",
   "parserFingerprint": "interpdv-qrp-v1",
   "fixtures": [
     {
       "id": "fixture-a",
       "logicalName": "NHOQUE BATATA",
       "relativePath": "qrp/fixture-a.qrp",
-      "sha256": null,
-      "byteSize": null,
+      "originalFilenameExample": "AUDITORIA.QRP",
+      "sha256": "cc98441ad0422fbe426165fd01e6ad9dff4d8eff183b1ebf426c80fb76dd365c",
+      "byteSize": 66048,
       "sensitivity": "PENDING_REVIEW",
-      "knownOrigin": "InterPDV / QuickReport — version unknown until file arrives",
-      "status": "ABSENT",
+      "knownOrigin": "InterPDV Relatório de Auditoria — product 35; filename AUDITORIA.QRP (no date hints)",
+      "status": "PRESENT",
       "expected": {
         "externalProductId": "35",
         "productName": "NHOQUE BATATA",
+        "pages": 1,
+        "lines": 15,
+        "sourceQuantityTotal": "10.842",
+        "parsedQuantityTotal": "10.842",
         "saleExternalId": "134808",
         "occurredAt": "2026-08-07T12:22:13",
-        "quantity": "0.510",
+        "quantity": "0.51",
+        "quantityPlanAlias": "0.510",
         "unitPrice": "63.90",
-        "discountPercentage": null,
-        "total": "32.59"
+        "discountPercentage": "0",
+        "total": "32.59",
+        "filenameHintsEmpty": true
       }
     },
     {
