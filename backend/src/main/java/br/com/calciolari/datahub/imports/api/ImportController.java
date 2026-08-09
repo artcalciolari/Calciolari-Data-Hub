@@ -22,7 +22,9 @@ import org.springframework.web.server.ResponseStatusException;
 import br.com.calciolari.datahub.imports.api.ImportDtos.ImportAcceptedResponse;
 import br.com.calciolari.datahub.imports.api.ImportDtos.ImportFileDetail;
 import br.com.calciolari.datahub.imports.api.ImportDtos.ImportJobResponse;
+import br.com.calciolari.datahub.imports.api.ImportDtos.ReprocessResponse;
 import br.com.calciolari.datahub.imports.application.ImportIngestionService;
+import br.com.calciolari.datahub.imports.application.ImportIngestionService.ReprocessResult;
 import br.com.calciolari.datahub.imports.application.ImportQueryService;
 import br.com.calciolari.datahub.imports.application.ImportedFileResult;
 import br.com.calciolari.datahub.imports.infrastructure.config.ImportLimitsProperties;
@@ -94,6 +96,24 @@ public class ImportController {
 	@GetMapping("/{jobId}/files/{fileId}")
 	public ImportFileDetail getFile(@PathVariable UUID jobId, @PathVariable UUID fileId) {
 		return queryService.getFile(jobId, fileId);
+	}
+
+	/**
+	 * Administrative reprocess. Not linked from primary UI navigation.
+	 * Requires {@code ADMIN} when {@code datahub.security.enabled=true}.
+	 */
+	@PostMapping("/files/{fileId}/reprocess")
+	public ReprocessResponse reprocess(@PathVariable UUID fileId) {
+		ReprocessResult result = ingestionService.reprocess(fileId);
+		return new ReprocessResponse(
+				result.importFileId(),
+				result.rawArtifactId(),
+				result.previousActiveParseAttemptId(),
+				result.parseAttemptId(),
+				result.published(),
+				result.parseStatus(),
+				result.fileStatus(),
+				result.recordsFound());
 	}
 
 	private void validateFile(MultipartFile file) {

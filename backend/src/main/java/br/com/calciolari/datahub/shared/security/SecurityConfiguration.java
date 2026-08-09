@@ -54,6 +54,7 @@ public class SecurityConfiguration {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 						.requestMatchers("/actuator/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.POST, "/api/imports/files/*/reprocess").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.POST, "/api/imports/**").hasAnyRole("IMPORTER", "ADMIN")
 						.requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole("VIEWER", "IMPORTER", "ADMIN")
 						.requestMatchers("/api/**").hasRole("ADMIN")

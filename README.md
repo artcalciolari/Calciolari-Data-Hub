@@ -10,8 +10,9 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 - API REST: imports, products, sales, dashboard
 - Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
 - PWA instalável (app shell only) + segurança operacional / backup
+- Reprocessamento admin (`POST /api/imports/files/{id}/reprocess`)
 
-Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/ops.md`, `docs/qrp-format.md`, `docs/decisions/`.
+Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/ops.md`, `docs/residuals.md`, `docs/qrp-format.md`, `docs/decisions/`.
 
 ## Backend
 
@@ -60,3 +61,7 @@ Detalhes em `docs/ops.md`.
 - Default local: API aberta — **somente em rede controlada**.
 - Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`).
 - Não exponha na internet sem autenticação. CORS vazio = same-origin.
+
+## Limitações
+
+Riscos residuais e fora de escopo: `docs/residuals.md` e plano §18.

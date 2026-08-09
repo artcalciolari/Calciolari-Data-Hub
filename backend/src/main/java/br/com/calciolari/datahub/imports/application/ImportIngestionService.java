@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,14 +55,16 @@ import br.com.calciolari.datahub.imports.infrastructure.persistence.RawArtifactE
 import br.com.calciolari.datahub.imports.infrastructure.persistence.RawArtifactRepository;
 import br.com.calciolari.datahub.imports.infrastructure.persistence.ValidationResultEntity;
 import br.com.calciolari.datahub.imports.infrastructure.persistence.ValidationResultRepository;
-import br.com.calciolari.datahub.imports.infrastructure.storage.LocalRawFileStorage;
 import br.com.calciolari.datahub.imports.infrastructure.storage.RawFileDescriptor;
 import br.com.calciolari.datahub.imports.infrastructure.storage.RawFileStorage;
+import br.com.calciolari.datahub.imports.infrastructure.storage.RawStorageIntegrityException;
 import br.com.calciolari.datahub.imports.infrastructure.storage.StoredRawFile;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleEntity;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleItemEntity;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleItemRepository;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Ingests one QRP upload: hash → immutable raw store → dedup → parse → optional publish.
@@ -88,6 +91,7 @@ public class ImportIngestionService {
 	private final ProductRepository productRepository;
 	private final SaleRepository saleRepository;
 	private final SaleItemRepository saleItemRepository;
+	private final ConcurrentHashMap<UUID, Object> reprocessLocks = new ConcurrentHashMap<>();
 
 	public ImportIngestionService(
 			RawFileStorage rawFileStorage,
@@ -169,6 +173,203 @@ public class ImportIngestionService {
 			job.setCompletedAt(Instant.now());
 			importJobRepository.save(job);
 		});
+	}
+
+	/**
+	 * Admin reprocess: verify raw bytes, create a new immutable parse attempt, and
+	 * atomically swap {@code artifact_publication.active_parse_attempt_id} only on success.
+	 * Concurrent reprocesses for the same artifact are serialized (in-JVM lock + DB row lock).
+	 */
+	public ReprocessResult reprocess(UUID importFileId) {
+		Objects.requireNonNull(importFileId, "importFileId");
+
+		ImportFileEntity file = importFileRepository.findById(importFileId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Import file not found"));
+		RawArtifactEntity artifact = rawArtifactRepository.findById(file.getRawArtifactId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Raw artifact not found"));
+
+		Object lock = reprocessLocks.computeIfAbsent(artifact.getId(), id -> new Object());
+		synchronized (lock) {
+			return reprocessLocked(file.getId(), artifact.getId());
+		}
+	}
+
+	private ReprocessResult reprocessLocked(UUID importFileId, UUID artifactId) {
+		ImportFileEntity file = importFileRepository.findById(importFileId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Import file not found"));
+		RawArtifactEntity artifact = rawArtifactRepository.findById(artifactId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Raw artifact not found"));
+
+		// Integrity check before any new attempt (plan §6.4 / storage contract).
+		try (InputStream ignored = rawFileStorage.openVerified(
+				artifact.getStorageKey(), artifact.getSha256(), artifact.getByteSize())) {
+			// verified
+		}
+		catch (RawStorageIntegrityException ex) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+		}
+		catch (IOException ex) {
+			throw new UncheckedIOException(ex);
+		}
+
+		String leaseOwner = "reprocess-" + UUID.randomUUID();
+		ReprocessClaim claim = transactionTemplate.execute(status -> claimReprocess(artifact.getId(), leaseOwner));
+
+		ParsedImport parsed;
+		try (InputStream in = rawFileStorage.openVerified(
+				artifact.getStorageKey(), artifact.getSha256(), artifact.getByteSize())) {
+			parsed = parser.parse(new ParserInput(
+					in, artifact.getByteSize(), file.getOriginalFilename(), artifact.getDetectedType()));
+		}
+		catch (RawStorageIntegrityException ex) {
+			transactionTemplate.executeWithoutResult(s -> failAttempt(claim.attemptId(), "raw integrity failed: " + ex.getMessage()));
+			throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+		}
+		catch (IOException ex) {
+			transactionTemplate.executeWithoutResult(s -> failAttempt(claim.attemptId(), "read failed: " + ex.getMessage()));
+			throw new UncheckedIOException(ex);
+		}
+		catch (RuntimeException ex) {
+			transactionTemplate.executeWithoutResult(s -> failAttempt(claim.attemptId(), ex.getMessage()));
+			throw ex;
+		}
+
+		return transactionTemplate.execute(status -> finalizeReprocess(importFileId, claim, leaseOwner, parsed));
+	}
+
+	private ReprocessClaim claimReprocess(UUID artifactId, String leaseOwner) {
+		RawArtifactEntity locked = rawArtifactRepository.findWithLockById(artifactId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Raw artifact not found"));
+
+		Optional<ParseAttemptEntity> latest = parseAttemptRepository
+				.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(
+						locked.getId(), InterPdvQrpParser.PARSER_NAME, InterPdvQrpParser.PARSER_VERSION);
+		if (latest.isPresent()) {
+			ParseAttemptEntity current = latest.get();
+			if (("PENDING".equals(current.getStatus()) || "PROCESSING".equals(current.getStatus()))
+					&& current.getLeaseUntil() != null
+					&& current.getLeaseUntil().isAfter(Instant.now())) {
+				throw new ResponseStatusException(
+						HttpStatus.CONFLICT, "parse attempt already in progress for artifact");
+			}
+		}
+
+		UUID previousActive = artifactPublicationRepository.findByRawArtifactId(locked.getId())
+				.map(ArtifactPublicationEntity::getActiveParseAttemptId)
+				.orElse(null);
+
+		int nextCount = latest.map(a -> a.getAttemptCount() + 1).orElse(1);
+		ParseAttemptEntity attempt = new ParseAttemptEntity(
+				UUID.randomUUID(),
+				locked.getId(),
+				InterPdvQrpParser.PARSER_NAME,
+				InterPdvQrpParser.PARSER_VERSION,
+				"PROCESSING",
+				nextCount);
+		attempt.setStartedAt(Instant.now());
+		attempt.setLeaseOwner(leaseOwner);
+		attempt.setLeaseGeneration(1L);
+		attempt.setLeaseUntil(Instant.now().plusSeconds(300));
+		parseAttemptRepository.save(attempt);
+
+		return new ReprocessClaim(attempt.getId(), locked.getId(), previousActive);
+	}
+
+	private ReprocessResult finalizeReprocess(
+			UUID importFileId,
+			ReprocessClaim claim,
+			String leaseOwner,
+			ParsedImport parsed) {
+		rawArtifactRepository.findWithLockById(claim.artifactId()).orElseThrow();
+
+		ParseAttemptEntity attempt = parseAttemptRepository.findById(claim.attemptId()).orElseThrow();
+		if (!leaseOwner.equals(attempt.getLeaseOwner())) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "reprocess lease lost");
+		}
+
+		ImportFileEntity file = importFileRepository.findById(importFileId).orElseThrow();
+
+		for (ParsedMovement movement : parsed.movements()) {
+			parsedMovementRepository.save(ParsedMovementEntity.from(UUID.randomUUID(), attempt.getId(), movement));
+		}
+		for (ParseIssue issue : parsed.issues()) {
+			if (issue.stage() == IssueStage.VALIDATION) {
+				validationResultRepository.save(toValidationEntity(attempt.getId(), issue));
+			}
+		}
+
+		boolean published = false;
+		String parseStatus;
+		if (parsed.hasFatalOrError()) {
+			parseStatus = parsed.issues().stream().anyMatch(i -> i.severity() == IssueSeverity.FATAL)
+					? "FAILED"
+					: "INVALID";
+		}
+		else {
+			List<String> saleIds = parsed.movements().stream()
+					.filter(m -> m.direction() == MovementDirection.OUT && m.externalSaleId() != null)
+					.map(ParsedMovement::externalSaleId)
+					.distinct()
+					.toList();
+			boolean overlap = !saleIds.isEmpty()
+					&& artifactPublicationRepository.existsOverlappingPublishedSales(claim.artifactId(), saleIds);
+			if (overlap) {
+				parseStatus = "WARNING";
+				validationResultRepository.save(new ValidationResultEntity(
+						UUID.randomUUID(),
+						attempt.getId(),
+						"OVERLAPPING_REPORT",
+						"WARNING",
+						null,
+						null,
+						null,
+						null,
+						"identity-v1",
+						"canonical publication blocked"));
+			}
+			else {
+				publishCanonical(claim.artifactId(), attempt.getId(), parsed);
+				published = true;
+				parseStatus = parsed.issues().stream().anyMatch(i -> i.severity() == IssueSeverity.WARNING)
+						? "WARNING"
+						: "VALID";
+			}
+		}
+
+		attempt.setStatus(parseStatus);
+		attempt.setRecordsFound(parsed.movements().size());
+		attempt.setCompletedAt(Instant.now());
+		attempt.setLeaseUntil(null);
+		parseAttemptRepository.save(attempt);
+
+		file.setParseAttemptId(attempt.getId());
+		if (published) {
+			file.setStatus(mapFileStatus(parseStatus));
+		}
+		file.setCompletedAt(Instant.now());
+		importFileRepository.save(file);
+
+		return new ReprocessResult(
+				file.getId(),
+				claim.artifactId(),
+				claim.previousActiveParseAttemptId(),
+				attempt.getId(),
+				published,
+				parseStatus,
+				file.getStatus(),
+				parsed.movements().size());
+	}
+
+	private void failAttempt(UUID attemptId, String summary) {
+		ParseAttemptEntity attempt = parseAttemptRepository.findById(attemptId).orElse(null);
+		if (attempt == null) {
+			return;
+		}
+		attempt.setStatus("FAILED");
+		attempt.setErrorSummary(summary == null ? null : summary.substring(0, Math.min(summary.length(), 500)));
+		attempt.setCompletedAt(Instant.now());
+		attempt.setLeaseUntil(null);
+		parseAttemptRepository.save(attempt);
 	}
 
 	public ImportedFileResult ingestIntoJob(UUID jobId, InputStream content, String originalFilename) {
@@ -519,5 +720,22 @@ public class ImportIngestionService {
 			ParseAttemptEntity attempt,
 			boolean skipParse,
 			boolean alreadyPublished) {
+	}
+
+	private record ReprocessClaim(
+			UUID attemptId,
+			UUID artifactId,
+			UUID previousActiveParseAttemptId) {
+	}
+
+	public record ReprocessResult(
+			UUID importFileId,
+			UUID rawArtifactId,
+			UUID previousActiveParseAttemptId,
+			UUID parseAttemptId,
+			boolean published,
+			String parseStatus,
+			String fileStatus,
+			int recordsFound) {
 	}
 }
