@@ -44,3 +44,7 @@ logs/
 
 # Maven wrapper jar (script-only distribution)
 .mvn/wrapper/maven-wrapper.jar
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
