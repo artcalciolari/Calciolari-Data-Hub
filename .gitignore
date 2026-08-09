@@ -50,3 +50,5 @@ logs/
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+frontend/coverage/
+frontend/dev-dist/

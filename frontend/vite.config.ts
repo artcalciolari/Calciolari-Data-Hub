@@ -97,5 +97,28 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: true,
     exclude: ['e2e/**', 'node_modules/**'],
+    coverage: {
+      // @ts-expect-error supported by @vitest/coverage-v8 at runtime; not yet in Vitest 4 typings
+      all: true,
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/test/**',
+        'src/**/__tests__/**',
+        'src/**/*.test.{ts,tsx}',
+        'e2e/**',
+        'src/assets/**',
+        // Vite entry bootstrap — covered by Playwright E2E, not unit-isolated.
+        'src/main.tsx',
+      ],
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
+      },
+    },
   },
 })

@@ -48,12 +48,8 @@ class SecurityAuthorizationIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-		jdbcTemplate.execute("""
-				TRUNCATE TABLE
-				  sale_item, sale, product, validation_result, parsed_movement,
-				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
-				RESTART IDENTITY CASCADE
-				""");
+		PostgresTestSupport.cleanDatabase(jdbcTemplate);
+		PostgresTestSupport.cleanRawStorage();
 	}
 
 	@Test
@@ -92,8 +88,9 @@ class SecurityAuthorizationIntegrationTest {
 
 		MvcResult upload = mockMvc.perform(multipart("/api/imports/qrp").file(file)
 						.with(httpBasic("importer", "importer-pass")))
-				.andExpect(status().isAccepted())
 				.andReturn();
+		org.junit.jupiter.api.Assertions.assertEquals(202, upload.getResponse().getStatus(),
+				upload.getResponse().getContentAsString());
 		JsonNode body = objectMapper.readTree(upload.getResponse().getContentAsString());
 		String fileId = body.path("files").path(0).path("id").asText();
 

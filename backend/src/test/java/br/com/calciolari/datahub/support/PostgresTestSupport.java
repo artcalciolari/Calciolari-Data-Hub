@@ -1,15 +1,25 @@
 package br.com.calciolari.datahub.support;
 
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 
 /**
  * Shared datasource wiring for integration tests. Prefers a local PostgreSQL
  * (always available in the Cloud agent VM). Set {@code datahub.test.jdbc-url}
- * to override. Testcontainers remains available for CI hosts with working Docker.
+ * to override.
+ *
+ * <p>Uses one shared raw-storage temp root and a small Hikari pool so multiple
+ * {@code @SpringBootTest} contexts do not exhaust Postgres connections. Call
+ * {@link #cleanRawStorage()} from {@code @BeforeEach} alongside DB truncate.
  */
 public final class PostgresTestSupport {
+
+	private static final Path SHARED_RAW_ROOT = createSharedRawRoot();
 
 	private PostgresTestSupport() {
 	}
@@ -29,13 +39,51 @@ public final class PostgresTestSupport {
 		registry.add("spring.datasource.url", () -> url);
 		registry.add("spring.datasource.username", () -> user);
 		registry.add("spring.datasource.password", () -> password);
-		registry.add("datahub.raw-storage.root", () -> {
-			try {
-				return Files.createTempDirectory("datahub-raw-it").toAbsolutePath().toString();
-			}
-			catch (Exception ex) {
-				throw new IllegalStateException(ex);
-			}
-		});
+		registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
+		registry.add("spring.datasource.hikari.minimum-idle", () -> "0");
+		registry.add("spring.datasource.hikari.idle-timeout", () -> "3000");
+		registry.add("datahub.raw-storage.root", SHARED_RAW_ROOT::toString);
+	}
+
+	public static Path rawStorageRoot() {
+		return SHARED_RAW_ROOT;
+	}
+
+	public static void cleanRawStorage() {
+		if (!Files.isDirectory(SHARED_RAW_ROOT)) {
+			return;
+		}
+		try (var walk = Files.walk(SHARED_RAW_ROOT)) {
+			walk.sorted(Comparator.reverseOrder())
+					.filter(p -> !p.equals(SHARED_RAW_ROOT))
+					.forEach(p -> {
+						try {
+							Files.deleteIfExists(p);
+						}
+						catch (IOException ignored) {
+						}
+					});
+		}
+		catch (IOException ignored) {
+		}
+	}
+
+	public static void cleanDatabase(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.execute("SET LOCAL lock_timeout TO '10s'");
+		jdbcTemplate.execute("""
+				TRUNCATE TABLE
+				  sale_item, sale, product, validation_result, parsed_movement,
+				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
+				RESTART IDENTITY CASCADE
+				""");
+	}
+
+	private static Path createSharedRawRoot() {
+		try {
+			return Files.createTempDirectory("datahub-raw-it-shared").toAbsolutePath().normalize();
+		}
+		catch (IOException ex) {
+			throw new IllegalStateException(ex);
+		}
 	}
 }

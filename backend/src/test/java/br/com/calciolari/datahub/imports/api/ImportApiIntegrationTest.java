@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,12 +48,8 @@ class ImportApiIntegrationTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
-		jdbcTemplate.execute("""
-				TRUNCATE TABLE
-				  sale_item, sale, product, validation_result, parsed_movement,
-				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
-				RESTART IDENTITY CASCADE
-				""");
+		PostgresTestSupport.cleanDatabase(jdbcTemplate);
+		PostgresTestSupport.cleanRawStorage();
 	}
 
 	@Test
@@ -128,5 +125,75 @@ class ImportApiIntegrationTest {
 		mockMvc.perform(multipart("/api/imports/qrp")
 						.file(new MockMultipartFile("files", "nope.txt", MediaType.TEXT_PLAIN_VALUE, "x".getBytes())))
 				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void uploadValidationAndQueryEdges() throws Exception {
+		mockMvc.perform(multipart("/api/imports/qrp"))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(multipart("/api/imports/qrp")
+						.file(new MockMultipartFile("files", "empty.qrp", "application/octet-stream", new byte[0])))
+				.andExpect(status().isBadRequest());
+
+		byte[] bytes = FixturePackage.requireBytes("fixture-a");
+		MockMultipartFile file = new MockMultipartFile(
+				"files", "AUDITORIA.QRP", "application/octet-stream", bytes);
+		MvcResult upload = mockMvc.perform(multipart("/api/imports/qrp").file(file))
+				.andExpect(status().isAccepted())
+				.andReturn();
+		JsonNode body = objectMapper.readTree(upload.getResponse().getContentAsString());
+		String jobId = body.path("jobId").asText();
+		String fileId = body.path("files").get(0).path("id").asText();
+
+		mockMvc.perform(get("/api/imports"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalElements").value(1));
+
+		mockMvc.perform(get("/api/imports/{jobId}/files/{fileId}", jobId, fileId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.sha256").isString())
+				.andExpect(jsonPath("$.validations").isArray());
+
+		mockMvc.perform(get("/api/imports/{jobId}/files/{fileId}", java.util.UUID.randomUUID(), fileId))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(get("/api/imports/{jobId}", java.util.UUID.randomUUID()))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(get("/api/products").param("q", " ").param("page", "0").param("size", "5"))
+				.andExpect(status().isOk());
+
+		String productId = objectMapper.readTree(
+				mockMvc.perform(get("/api/products")).andReturn().getResponse().getContentAsString())
+				.path("content").get(0).path("id").asText();
+		mockMvc.perform(get("/api/products/{id}", productId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.firstSeenParseAttemptId").isString());
+		mockMvc.perform(get("/api/products/{id}", java.util.UUID.randomUUID()))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(get("/api/sales").param("page", "-1"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/sales").param("size", "0"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/sales/{id}", java.util.UUID.randomUUID()))
+				.andExpect(status().isNotFound());
+
+		mockMvc.perform(post("/api/imports/files/{fileId}/reprocess", fileId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.published").value(true));
+	}
+
+	@Test
+	void invalidQrpIsStoredWithoutCanonicalPublish() throws Exception {
+		MockMultipartFile junk = new MockMultipartFile(
+				"files", "broken.qrp", "application/octet-stream", "NOT_QRP".getBytes());
+		mockMvc.perform(multipart("/api/imports/qrp").file(junk))
+				.andExpect(status().isAccepted())
+				.andExpect(jsonPath("$.status").value("FAILED"))
+				.andExpect(jsonPath("$.files[0].status").value("FAILED"));
+		mockMvc.perform(get("/api/products"))
+				.andExpect(jsonPath("$.totalElements").value(0));
 	}
 }

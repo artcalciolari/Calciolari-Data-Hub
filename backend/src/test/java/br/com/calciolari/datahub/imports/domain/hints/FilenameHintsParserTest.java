@@ -45,4 +45,25 @@ class FilenameHintsParserTest {
 		assertEquals(7, hints.singleDateHint().orElseThrow().month());
 		assertTrue(hints.singleDateHint().orElseThrow().year().isEmpty());
 	}
+
+	@Test
+	void parsesSlashPeriodRange() {
+		FilenameHints hints = parser.parse("AUDITORIA 01/07-20/07.QRP");
+		assertTrue(hints.periodHint().isPresent());
+	}
+
+	@Test
+	void stripsWindowsDirectoryPrefix() {
+		FilenameHints hints = parser.parse("folder\\relatorio_20_07.QRP");
+		assertTrue(hints.singleDateHint().isPresent());
+	}
+
+	@Test
+	void invalidDayOrMonthViaReflection() throws Exception {
+		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
+		toDate.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toDate.invoke(parser, "xx", "01")).isEmpty());
+		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_01_00.QRP").isEmpty());
+	}
 }

@@ -27,21 +27,16 @@ public final class FilenameHintsParser {
 
 	public FilenameHints parse(String originalFilename) {
 		String preserved = originalFilename == null ? "" : originalFilename;
-		try {
-			String basename = stripDirectory(preserved);
-			String stem = stripExtension(basename);
+		String basename = stripDirectory(preserved);
+		String stem = stripExtension(basename);
 
-			Optional<IncompleteDateRange> period = matchPeriod(stem);
-			if (period.isPresent()) {
-				return new FilenameHints(preserved, period, Optional.empty());
-			}
+		Optional<IncompleteDateRange> period = matchPeriod(stem);
+		if (period.isPresent()) {
+			return new FilenameHints(preserved, period, Optional.empty());
+		}
 
-			Optional<IncompleteDate> single = matchSingle(stem);
-			return new FilenameHints(preserved, Optional.empty(), single);
-		}
-		catch (RuntimeException ignored) {
-			return FilenameHints.empty(preserved);
-		}
+		Optional<IncompleteDate> single = matchSingle(stem);
+		return new FilenameHints(preserved, Optional.empty(), single);
 	}
 
 	private static Optional<IncompleteDateRange> matchPeriod(String stem) {
@@ -92,7 +87,10 @@ public final class FilenameHintsParser {
 	}
 
 	private static String stripDirectory(String name) {
-		int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+		// Only strip Windows-style directories. Forward slashes are kept so
+		// documented {@code dd/MM} filename hints remain matchable (browsers
+		// already send basenames without Unix path prefixes).
+		int slash = name.lastIndexOf('\\');
 		return slash >= 0 ? name.substring(slash + 1) : name;
 	}
 

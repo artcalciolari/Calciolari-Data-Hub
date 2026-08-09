@@ -19,7 +19,6 @@ export function ImportsPage() {
   const [drag, setDrag] = useState(false)
 
   async function submit() {
-    if (!selected.length) return
     setUploading(true)
     setNotice(null)
     try {

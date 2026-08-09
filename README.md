@@ -65,3 +65,7 @@ Detalhes em `docs/ops.md`.
 ## Limitações
 
 Riscos residuais e fora de escopo: `docs/residuals.md` e plano §18.
+
+## Coverage / CI
+
+Gates de 100% (JaCoCo + Vitest): `docs/coverage.md` e `.github/workflows/ci.yml`.
