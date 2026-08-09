@@ -522,12 +522,24 @@ tr.link-row:hover {
 .hero::after {
   content: '';
   position: absolute;
-  top: -40%;
-  right: -10%;
-  width: 260px;
-  height: 260px;
+  top: -30%;
+  right: -5%;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 185, 115, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(245, 185, 115, 0.22) 0%, rgba(245, 185, 115, 0.08) 40%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  left: -8%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(110, 140, 105, 0.18) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -809,6 +821,12 @@ tr.link-row:hover {
   }
 }
 
+@media (max-width: 980px) {
+  .grid.cards-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 760px) {
   .app-header {
     flex-direction: column;
@@ -835,7 +853,7 @@ tr.link-row:hover {
 @media (max-width: 480px) {
   .grid.cards-4,
   .grid.cards-2 {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .detail-top {
