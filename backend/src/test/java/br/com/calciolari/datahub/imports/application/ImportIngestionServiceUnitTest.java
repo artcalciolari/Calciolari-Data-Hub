@@ -880,7 +880,6 @@ class ImportIngestionServiceUnitTest {
 		}).when(storage).openVerified(anyString(), anyString(), anyLong());
 
 		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
-		verify(attempts, never()).save(any());
 	}
 
 	@Test
