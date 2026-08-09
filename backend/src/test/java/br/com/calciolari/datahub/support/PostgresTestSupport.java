@@ -6,7 +6,10 @@ import java.nio.file.Path;
 import java.util.Comparator;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
+
+import javax.sql.DataSource;
 
 /**
  * Shared datasource wiring for integration tests. Prefers a local PostgreSQL
@@ -69,13 +72,34 @@ public final class PostgresTestSupport {
 	}
 
 	public static void cleanDatabase(JdbcTemplate jdbcTemplate) {
-		jdbcTemplate.execute("SET LOCAL lock_timeout TO '10s'");
-		jdbcTemplate.execute("""
-				TRUNCATE TABLE
-				  sale_item, sale, product, validation_result, parsed_movement,
-				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
-				RESTART IDENTITY CASCADE
-				""");
+		DataSource dataSource = jdbcTemplate.getDataSource();
+		if (dataSource == null) {
+			throw new IllegalStateException("JdbcTemplate has no DataSource");
+		}
+		var connection = DataSourceUtils.getConnection(dataSource);
+		try {
+			try (var statement = connection.createStatement()) {
+				statement.execute("SELECT pg_advisory_lock(42424242)");
+				statement.execute("SET LOCAL lock_timeout TO '10s'");
+				statement.execute("""
+						TRUNCATE TABLE
+						  sale_item, sale, product, validation_result, parsed_movement,
+						  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
+						RESTART IDENTITY CASCADE
+						""");
+			}
+		}
+		catch (java.sql.SQLException ex) {
+			throw new org.springframework.jdbc.UncategorizedSQLException("cleanDatabase failed", null, ex);
+		}
+		finally {
+			try (var unlock = connection.createStatement()) {
+				unlock.execute("SELECT pg_advisory_unlock(42424242)");
+			}
+			catch (java.sql.SQLException ignored) {
+			}
+			DataSourceUtils.releaseConnection(connection, dataSource);
+		}
 	}
 
 	private static Path createSharedRawRoot() {

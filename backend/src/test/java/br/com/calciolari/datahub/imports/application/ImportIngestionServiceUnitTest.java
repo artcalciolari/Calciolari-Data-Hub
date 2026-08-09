@@ -815,6 +815,43 @@ class ImportIngestionServiceUnitTest {
 	}
 
 	@Test
+	void reprocessPrecheckNullStreamIsSkipped() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		ImportFileEntity file = new ImportFileEntity(fileId, UUID.randomUUID(), artifactId, "f.qrp", "INTERPDV", "IMPORTED");
+		RawArtifactEntity artifact = new RawArtifactEntity(artifactId, "n".repeat(64), 1, "00/00/" + "n".repeat(64), "QRP");
+		when(files.findById(fileId)).thenReturn(Optional.of(file));
+		when(rawArtifacts.findById(artifactId)).thenReturn(Optional.of(artifact));
+		when(rawArtifacts.findWithLockById(artifactId)).thenReturn(Optional.of(artifact));
+		final String[] lease = new String[1];
+		when(attempts.save(any())).thenAnswer(inv -> {
+			ParseAttemptEntity a = inv.getArgument(0);
+			lease[0] = a.getLeaseOwner();
+			return a;
+		});
+		when(attempts.findById(any())).thenAnswer(inv -> {
+			ParseAttemptEntity real = new ParseAttemptEntity(inv.getArgument(0), artifactId,
+					InterPdvQrpParser.PARSER_NAME, InterPdvQrpParser.PARSER_VERSION, "PROCESSING", 1);
+			real.setLeaseOwner(lease[0]);
+			return Optional.of(real);
+		});
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.empty());
+		when(publications.findByRawArtifactId(artifactId)).thenReturn(Optional.empty());
+		AtomicInteger opens = new AtomicInteger();
+		doAnswer(inv -> {
+			if (opens.incrementAndGet() == 1) {
+				return null; // try-with-resources null branch on integrity precheck
+			}
+			return new ByteArrayInputStream(new byte[] {1});
+		}).when(storage).openVerified(anyString(), anyString(), anyLong());
+		org.mockito.Mockito.doReturn(validParsed(List.of(outSale("N1")), List.of())).when(parser).parse(any());
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		stubPublishHappy();
+		assertTrue(service.reprocess(fileId).published());
+	}
+
+	@Test
 	void reprocessIntegrityOpenCloseFailureWrapsIo() {
 		UUID fileId = UUID.randomUUID();
 		UUID artifactId = UUID.randomUUID();

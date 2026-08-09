@@ -32,6 +32,12 @@ class FilenameHintsParserTest {
 	}
 
 	@Test
+	void isEmptyFalseWhenPeriodOrSinglePresent() {
+		assertTrue(!parser.parse("AUDITORIA 01_07-20_07.QRP").isEmpty());
+		assertTrue(!parser.parse("relatorio_20_07.QRP").isEmpty());
+	}
+
+	@Test
 	void neverThrowsOnNullOrGarbage() {
 		assertEquals("", parser.parse(null).originalFilename());
 		assertTrue(parser.parse("???@@@").isEmpty());

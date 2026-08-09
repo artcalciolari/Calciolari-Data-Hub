@@ -128,6 +128,8 @@
 					<forkCount>1</forkCount>
 					<reuseForks>true</reuseForks>
 					<parallel>none</parallel>
+					<!-- Keep JaCoCo agent from prepare-agent and give the fork enough heap. -->
+					<argLine>@{argLine} -Xmx2048m -XX:+EnableDynamicAgentLoading</argLine>
 					<systemPropertyVariables>
 						<user.language>en</user.language>
 						<user.country>US</user.country>

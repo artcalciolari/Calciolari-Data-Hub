@@ -35,6 +35,11 @@ class DomainHintsRecordsTest {
 				Optional.of(new IncompleteDateRange(new IncompleteDate(1, 1), new IncompleteDate(2, 2))),
 				Optional.empty());
 		assertFalse(withPeriod.isEmpty());
+		FilenameHints withSingle = new FilenameHints(
+				"s.qrp",
+				Optional.empty(),
+				Optional.of(new IncompleteDate(20, 7)));
+		assertFalse(withSingle.isEmpty());
 		FilenameHints nullSafe = new FilenameHints("x", null, null);
 		assertTrue(nullSafe.isEmpty());
 	}
