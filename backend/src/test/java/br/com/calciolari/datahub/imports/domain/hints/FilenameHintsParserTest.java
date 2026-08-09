@@ -1,6 +1,7 @@
 package br.com.calciolari.datahub.imports.domain.hints;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,12 @@ class FilenameHintsParserTest {
 		toRange.setAccessible(true);
 		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "32", "01", "01", "01")).isEmpty());
 		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "32", "01")).isEmpty());
+	}
+
+	@Test
+	void isEmptyIsFalseWhenAnyHintIsPresent() {
+		assertFalse(parser.parse("AUDITORIA 01_07-20_07.QRP").isEmpty());
+		assertFalse(parser.parse("relatorio_20_07.QRP").isEmpty());
 	}
 
 	@Test

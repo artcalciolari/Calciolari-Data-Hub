@@ -867,6 +867,42 @@ class ImportIngestionServiceUnitTest {
 	}
 
 	@Test
+	void reprocessPrecheckTryWithResourcesClosesBeforeSecondOpen() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		AtomicInteger opens = new AtomicInteger();
+		doAnswer(inv -> {
+			if (opens.getAndIncrement() == 0) {
+				return new ByteArrayInputStream(new byte[0]);
+			}
+			throw new RawStorageIntegrityException("second");
+		}).when(storage).openVerified(anyString(), anyString(), anyLong());
+
+		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
+		verify(attempts, never()).save(any());
+	}
+
+	@Test
+	void reprocessToleratesNullStreamFromIntegrityCheck() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		stubLeaseAwareAttempts(artifactId);
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.empty());
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		stubPublishHappy();
+		doReturn(validParsed(List.of(outSale("N1")), List.of())).when(parser).parse(any());
+
+		AtomicInteger opens = new AtomicInteger();
+		doAnswer(inv -> opens.incrementAndGet() == 1 ? null : new ByteArrayInputStream(new byte[] {1, 2, 3}))
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
+
+		assertTrue(service.reprocess(fileId).published());
+	}
+
+	@Test
 	void failAttemptMissingRowNullAndOversizedSummary() {
 		UUID fileId = UUID.randomUUID();
 		UUID artifactId = UUID.randomUUID();
