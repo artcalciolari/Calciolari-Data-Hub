@@ -137,6 +137,12 @@ class ImportControllerUnitTest {
 	}
 
 	@Test
+	void validateFileRejectsEmptyNonNullFile() {
+		MultipartFile empty = new MockMultipartFile("files", "empty.qrp", null, new byte[0]);
+		assertEquals(HttpStatus.BAD_REQUEST, status(() -> controller.upload(List.of(empty))));
+	}
+
+	@Test
 	void validationDtoDecimal() {
 		assertEquals(null, ImportDtos.ValidationDto.decimal(null));
 		assertEquals("1.50", ImportDtos.ValidationDto.decimal(new java.math.BigDecimal("1.50")));

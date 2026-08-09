@@ -62,8 +62,26 @@ class FilenameHintsParserTest {
 	void invalidDayOrMonthViaReflection() throws Exception {
 		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
 		toDate.setAccessible(true);
-		assertTrue(((java.util.Optional<?>) toDate.invoke(parser, "xx", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "xx", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "01", "yy")).isEmpty());
 		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
 		assertTrue(parser.parse("x_01_00.QRP").isEmpty());
+	}
+
+	@Test
+	void toRangeEmptyWhenEitherEndInvalid() throws Exception {
+		var toRange = FilenameHintsParser.class.getDeclaredMethod(
+				"toRange", String.class, String.class, String.class, String.class);
+		toRange.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "32", "01", "01", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "32", "01")).isEmpty());
+	}
+
+	@Test
+	void matchSingleFallsBackToSlashPattern() {
+		FilenameHints hints = parser.parse("nota_15/08.QRP");
+		assertTrue(hints.singleDateHint().isPresent());
+		assertEquals(15, hints.singleDateHint().orElseThrow().day());
+		assertEquals(8, hints.singleDateHint().orElseThrow().month());
 	}
 }
