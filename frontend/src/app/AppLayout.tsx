@@ -1,15 +1,22 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { NAV_ITEMS } from '@/shared/api'
 import { Icon } from '@/shared/icons'
+import { PwaUpdateBanner } from '@/shared/PwaUpdateBanner'
 
 export function AppLayout() {
   return (
     <div className="app-shell">
+      <PwaUpdateBanner />
       <header className="app-header">
-        <div>
-          <p className="brand">Calciolari Data Hub</p>
-          <p className="brand-sub">Auditoria e indicadores InterPDV</p>
-        </div>
+        <NavLink to="/" className="brand-block" end aria-label="Calciolari Data Hub — início">
+          <img
+            className="brand-logo"
+            src="/logo-calciolari-header.png"
+            alt="Calciolari Cucina Italiana"
+            width={220}
+            height={54}
+          />
+        </NavLink>
         <nav className="top-nav" aria-label="Navegação principal">
           {NAV_ITEMS.map((item) => (
             <NavLink

@@ -34,6 +34,7 @@ Thumbs.db
 /data/
 /backend/data/
 /raw-storage/
+/backups/
 
 # Accidental QRP drops at repo root — fixtures under test resources are allowed
 /*.qrp

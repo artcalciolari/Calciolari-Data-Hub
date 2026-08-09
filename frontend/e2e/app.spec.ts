@@ -44,4 +44,17 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByRole('heading', { name: /Job / })).toBeVisible()
     await expect(page.getByText(/AUDITORIA 41, 01_07-20_07\.QRP|AUDITORIA\.QRP/).first()).toBeVisible()
   })
+
+  test('PWA manifest is linked and installable metadata is present', async ({ page }) => {
+    await page.goto('/')
+    const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href')
+    expect(manifestHref).toBeTruthy()
+    const manifest = await page.request.get(manifestHref!)
+    expect(manifest.ok()).toBeTruthy()
+    const body = await manifest.json()
+    expect(body.name).toBe('Calciolari Data Hub')
+    expect(body.display).toBe('standalone')
+    expect(body.theme_color).toBe('#2D2823')
+    expect(body.icons?.length).toBeGreaterThanOrEqual(2)
+  })
 })

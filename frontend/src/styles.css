@@ -78,24 +78,39 @@ a {
 
 .app-header {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 22px 0;
+  padding: 12px 22px 0;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand-logo {
+  display: block;
+  height: 44px;
+  width: auto;
+  max-width: min(260px, 62vw);
+  object-fit: contain;
+  object-position: left center;
 }
 
 .brand {
   margin: 0;
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 500;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
   color: var(--nocciola);
 }
 
 .brand-sub {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 300;
 }
 
@@ -131,7 +146,7 @@ a {
 
 .app-main {
   flex: 1;
-  padding: 20px 22px 96px;
+  padding: 10px 22px 96px;
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
@@ -157,17 +172,25 @@ a {
 
 .page-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .page-head h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 500;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+}
+
+.page-head .muted,
+.page-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .muted {
@@ -796,12 +819,34 @@ tr.link-row:hover {
   margin-top: 4px;
 }
 
-.back-link {
-  display: inline-flex;
+.pwa-banner {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 8px;
-  color: var(--muted);
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--nocciola);
+  color: var(--crema);
+  font-size: 14px;
+  font-weight: 500;
+  animation: fadeUp 280ms ease both;
+}
+
+.pwa-banner .btn.primary {
+  background: var(--sole);
+  color: var(--nocciola);
+  border-color: var(--sole);
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.pwa-banner .btn.secondary {
+  background: transparent;
+  color: var(--crema);
+  border-color: rgba(245, 235, 225, 0.35);
+  min-height: 36px;
+  padding: 6px 12px;
 }
 
 /* ---------- responsive ---------- */
@@ -831,10 +876,25 @@ tr.link-row:hover {
   .app-header {
     flex-direction: column;
     align-items: flex-start;
+    padding: 12px 12px 0;
+    gap: 8px;
   }
 
   .app-main {
-    padding: 16px 12px 92px;
+    padding: 8px 12px 92px;
+  }
+
+  .brand-logo {
+    height: 34px;
+    max-width: min(200px, 72vw);
+  }
+
+  .page-head {
+    margin-bottom: 8px;
+  }
+
+  .page-head h1 {
+    font-size: 20px;
   }
 
   .grid.cards-4 {
