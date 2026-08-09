@@ -282,9 +282,8 @@ class ImportIngestionServiceUnitTest {
 		assertEquals(HttpStatus.NOT_FOUND, status(() -> service.reprocess(fileId)));
 
 		when(rawArtifacts.findById(artifactId)).thenReturn(Optional.of(artifact));
-		when(storage.openVerified(anyString(), anyString(), anyLong())).thenAnswer(inv -> {
-			throw new RawStorageIntegrityException("bad");
-		});
+		doAnswer(inv -> { throw new RawStorageIntegrityException("bad"); })
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
 		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
 
 		when(rawArtifacts.findWithLockById(artifactId)).thenReturn(Optional.of(artifact));
@@ -296,19 +295,20 @@ class ImportIngestionServiceUnitTest {
 				inv.getArgument(0), artifactId, InterPdvQrpParser.PARSER_NAME, InterPdvQrpParser.PARSER_VERSION, "PROCESSING", 1)));
 
 		AtomicInteger opens = new AtomicInteger();
-		when(storage.openVerified(anyString(), anyString(), anyLong())).thenAnswer(inv -> {
+		doAnswer(inv -> {
 			if (opens.incrementAndGet() == 1) {
 				return new ByteArrayInputStream(new byte[] {1, 2, 3});
 			}
 			return new ByteArrayInputStream(new byte[] {1}) {
 				@Override public void close() throws IOException { throw new IOException("boom"); }
 			};
-		});
+		}).when(storage).openVerified(anyString(), anyString(), anyLong());
 		when(parser.parse(any())).thenReturn(validParsed(List.of(), List.of()));
 		assertThrows(UncheckedIOException.class, () -> service.reprocess(fileId));
 
-		when(storage.openVerified(anyString(), anyString(), anyLong())).thenReturn(new ByteArrayInputStream(new byte[] {1, 2, 3}));
-		when(parser.parse(any())).thenThrow(new IllegalStateException("parse-fail"));
+		doAnswer(inv -> new ByteArrayInputStream(new byte[] {1, 2, 3}))
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
+		doAnswer(inv -> { throw new IllegalStateException("parse-fail"); }).when(parser).parse(any());
 		assertThrows(IllegalStateException.class, () -> service.reprocess(fileId));
 
 		ParseAttemptEntity leased = attempt(artifactId, "PROCESSING", 1);
@@ -334,7 +334,7 @@ class ImportIngestionServiceUnitTest {
 			real.setLeaseOwner("wrong");
 			return Optional.of(real);
 		});
-		when(parser.parse(any())).thenReturn(validParsed(List.of(outSale("R1")), List.of()));
+		org.mockito.Mockito.doReturn(validParsed(List.of(outSale("R1")), List.of())).when(parser).parse(any());
 		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
 
 		when(attempts.findById(any())).thenAnswer(inv -> {
@@ -347,29 +347,32 @@ class ImportIngestionServiceUnitTest {
 		stubPublishHappy();
 		assertTrue(service.reprocess(fileId).published());
 
-		when(parser.parse(any())).thenReturn(validParsed(List.of(outSale("R2")), List.of(
-				new ParseIssue("W", IssueSeverity.WARNING, IssueStage.VALIDATION, SourceLocator.empty(), "warn"))));
+		org.mockito.Mockito.doReturn(validParsed(List.of(outSale("R2")), List.of(
+				new ParseIssue("W", IssueSeverity.WARNING, IssueStage.VALIDATION, SourceLocator.empty(), "warn"))))
+				.when(parser).parse(any());
 		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(true);
 		ImportIngestionService.ReprocessResult warn = service.reprocess(fileId);
 		assertEquals("WARNING", warn.parseStatus());
 		assertFalse(warn.published());
 
-		when(parser.parse(any())).thenReturn(validParsed(List.of(), List.of(
-				new ParseIssue("F", IssueSeverity.FATAL, IssueStage.CONTAINER, SourceLocator.empty(), "fatal"))));
+		org.mockito.Mockito.doReturn(validParsed(List.of(), List.of(
+				new ParseIssue("F", IssueSeverity.FATAL, IssueStage.CONTAINER, SourceLocator.empty(), "fatal"))))
+				.when(parser).parse(any());
 		ImportIngestionService.ReprocessResult fatal = service.reprocess(fileId);
 		assertEquals("FAILED", fatal.parseStatus());
 
 		opens.set(0);
-		when(storage.openVerified(anyString(), anyString(), anyLong())).thenAnswer(inv -> {
+		doAnswer(inv -> {
 			if (opens.incrementAndGet() == 1) {
 				return new ByteArrayInputStream(new byte[] {1});
 			}
 			throw new RawStorageIntegrityException("later");
-		});
+		}).when(storage).openVerified(anyString(), anyString(), anyLong());
 		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
 
 		// claimReprocess missing lock
-		when(storage.openVerified(anyString(), anyString(), anyLong())).thenReturn(new ByteArrayInputStream(new byte[] {1}));
+		doAnswer(inv -> new ByteArrayInputStream(new byte[] {1}))
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
 		when(rawArtifacts.findWithLockById(artifactId)).thenReturn(Optional.empty());
 		assertEquals(HttpStatus.NOT_FOUND, status(() -> service.reprocess(fileId)));
 	}
