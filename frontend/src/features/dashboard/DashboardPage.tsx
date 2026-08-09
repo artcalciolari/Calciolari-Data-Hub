@@ -4,6 +4,7 @@ import { getDashboard, listSales } from '@/shared/api'
 import { formatDateTime, formatInteger, formatMoney, formatQuantity } from '@/shared/format'
 import { Icon, type IconName } from '@/shared/icons'
 import { StateMessage } from '@/shared/StateMessage'
+import { Skeleton } from '@/shared/Skeleton'
 import { useAsync } from '@/shared/useAsync'
 
 type Metric = 'revenue' | 'quantity'
@@ -14,7 +15,7 @@ export function DashboardPage() {
   const recent = useAsync(() => listSales({ size: 5 }), [])
 
   if (state.loading || recent.loading) {
-    return <StateMessage title="Carregando resumo…" />
+    return <DashboardSkeleton />
   }
   if (state.error) {
     return <StateMessage tone="error" title="Não foi possível carregar o resumo">{state.error}</StateMessage>
@@ -169,6 +170,31 @@ function Kpi({ icon, label, value }: { icon: IconName; label: string; value: str
       <div>
         <div className="k">{label}</div>
         <div className="v">{value}</div>
+      </div>
+    </div>
+  )
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="grid" aria-busy="true" aria-label="Carregando resumo">
+      <div className="page-head">
+        <div>
+          <Skeleton className="line w-40" />
+          <Skeleton className="line w-60" />
+        </div>
+      </div>
+      <Skeleton className="section-skeleton" />
+      <section className="grid cards-4">
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+      </section>
+      <Skeleton className="section-skeleton" />
+      <div className="dash-pair">
+        <Skeleton className="section-skeleton" />
+        <Skeleton className="section-skeleton" />
       </div>
     </div>
   )

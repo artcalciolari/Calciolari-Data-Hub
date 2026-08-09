@@ -5,6 +5,7 @@ import type { ImportJob } from '@/shared/api'
 import { formatDateTime } from '@/shared/format'
 import { StateMessage } from '@/shared/StateMessage'
 import { StatusBadge } from '@/shared/StatusBadge'
+import { Skeleton } from '@/shared/Skeleton'
 import { useAsync } from '@/shared/useAsync'
 import { Icon } from '@/shared/icons'
 
@@ -92,7 +93,7 @@ export function ImportsPage() {
           <span className="muted">{jobs.data ? `${jobs.data.totalElements} job(s)` : ''}</span>
         </div>
         {jobs.loading ? (
-          <StateMessage title="Carregando histórico…" />
+          <TableSkeleton rows={5} cols={4} />
         ) : jobs.error ? (
           <StateMessage tone="error" title="Erro ao carregar histórico">{jobs.error}</StateMessage>
         ) : jobs.data && jobs.data.content.length > 0 ? (
@@ -122,6 +123,31 @@ export function ImportsPage() {
           <div className="empty-state">Nenhuma importação ainda.</div>
         )}
       </section>
+    </div>
+  )
+}
+
+function TableSkeleton({ rows, cols }: { rows: number; cols: number }) {
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            {Array.from({ length: cols }).map((_, i) => (
+              <th key={i}><Skeleton className="line w-40" /></th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <tr key={i}>
+              {Array.from({ length: cols }).map((_, j) => (
+                <td key={j}><Skeleton className={j === 0 ? 'line w-60' : 'line w-40'} /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

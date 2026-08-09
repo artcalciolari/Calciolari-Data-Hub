@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { listProducts, listSales } from '@/shared/api'
 import { formatDateTime, formatMoney } from '@/shared/format'
 import { StateMessage } from '@/shared/StateMessage'
+import { Skeleton } from '@/shared/Skeleton'
 import { useAsync } from '@/shared/useAsync'
 
 export function SalesPage() {
@@ -53,7 +54,7 @@ export function SalesPage() {
 
       <section className="section">
         {sales.loading ? (
-          <StateMessage title="Carregando vendas…" />
+          <TableSkeleton rows={8} cols={3} />
         ) : sales.error ? (
           <StateMessage tone="error" title="Erro ao carregar vendas">{sales.error}</StateMessage>
         ) : sales.data && sales.data.content.length > 0 ? (
@@ -81,6 +82,31 @@ export function SalesPage() {
           <div className="empty-state">Nenhuma venda no filtro atual.</div>
         )}
       </section>
+    </div>
+  )
+}
+
+function TableSkeleton({ rows, cols }: { rows: number; cols: number }) {
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            {Array.from({ length: cols }).map((_, i) => (
+              <th key={i}><Skeleton className="line w-40" /></th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <tr key={i}>
+              {Array.from({ length: cols }).map((_, j) => (
+                <td key={j}><Skeleton className={j === 0 ? 'line w-60' : 'line w-40'} /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
