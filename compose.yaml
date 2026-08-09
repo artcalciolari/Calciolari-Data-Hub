@@ -1,0 +1,27 @@
+# Local infrastructure for Fase 3A+. Safe to bring up earlier; unused by the
+# current parser-scaffold unit tests.
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    container_name: datahub-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-datahub}
+      POSTGRES_USER: ${POSTGRES_USER:-datahub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PG 18+ stores versioned data under /var/lib/postgresql
+      - datahub_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Placeholder volume mount for immutable raw .QRP bytes (LocalRawFileStorage).
+  # The backend process (not this compose service) owns the files; this volume
+  # exists so backup/restore can treat DB + raw bytes as one logical unit later.
+volumes:
+  datahub_pgdata:
+  datahub_raw:

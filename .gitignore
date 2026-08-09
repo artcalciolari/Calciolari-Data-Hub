@@ -1,0 +1,46 @@
+# Build
+**/target/
+**/build/
+**/dist/
+**/node_modules/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*~
+
+# Env / local secrets
+.env
+.env.local
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local raw storage / temp uploads (runtime, never commit)
+/data/
+/raw-storage/
+
+# Accidental QRP drops at repo root — fixtures under test resources are allowed
+/*.qrp
+/*.QRP
+
+# Logs
+*.log
+logs/
+
+# Maven wrapper jar (script-only distribution)
+.mvn/wrapper/maven-wrapper.jar

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "packageStatus": "PARTIAL",
+  "packageInstructions": "Fixture B is present. Fixture A (NHOQUE BATATA) is still missing — provide the binary and fill sha256/byteSize after human review.",
+  "parserFingerprint": "interpdv-qrp-v1",
+  "fixtures": [
+    {
+      "id": "fixture-a",
+      "logicalName": "NHOQUE BATATA",
+      "relativePath": "qrp/fixture-a.qrp",
+      "sha256": null,
+      "byteSize": null,
+      "sensitivity": "PENDING_REVIEW",
+      "knownOrigin": "InterPDV / QuickReport — version unknown until file arrives",
+      "status": "ABSENT",
+      "expected": {
+        "externalProductId": "35",
+        "productName": "NHOQUE BATATA",
+        "saleExternalId": "134808",
+        "occurredAt": "2026-08-07T12:22:13",
+        "quantity": "0.510",
+        "unitPrice": "63.90",
+        "discountPercentage": null,
+        "total": "32.59"
+      }
+    },
+    {
+      "id": "fixture-b",
+      "logicalName": "MOLHO POMODORO",
+      "relativePath": "qrp/fixture-b.qrp",
+      "originalFilenameExample": "AUDITORIA 41, 01_07-20_07.QRP",
+      "sha256": "4e1b7539aa9f33c131924a5eb6e6b9400e38041dff6a05c437e95a96bc8654fb",
+      "byteSize": 473100,
+      "sensitivity": "PENDING_REVIEW",
+      "knownOrigin": "InterPDV Relatório de Auditoria — product 41; filename period hint 01_07-20_07 (year absent)",
+      "status": "PRESENT",
+      "expected": {
+        "externalProductId": "41",
+        "productName": "MOLHO POMODORO",
+        "manufacturer": "CASA CALCIOLARI",
+        "pages": 4,
+        "lines": 134,
+        "uniqueSales": 93,
+        "quantityTotal": "52.986",
+        "revenueTotal": "3013.07",
+        "entries": 0,
+        "lastMovementAt": "2026-07-19T13:07:03",
+        "sourceQuantityTotal": "52.986",
+        "parsedQuantityTotal": "52.986",
+        "quantityDifference": "0",
+        "quantityValidationStatus": "VALID",
+        "sampleSale": {
+          "saleExternalId": "134409",
+          "quantity": "0.416",
+          "unitPrice": "56.90",
+          "discountPercentage": "8",
+          "total": "21.78"
+        },
+        "filenameHintMustNotOverrideLastMovement": true
+      }
+    }
+  ]
+}

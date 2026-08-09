@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calciolari | Auditoria do PDV</title>
+<style>
+  :root {
+    --bg:#f6f6f3; --card:#fff; --text:#171717; --muted:#696969; --line:#deded8;
+    --accent:#292929; --soft:#efefe9; --ok:#176b45; --warn:#925d00;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,input{font:inherit} .wrap{max-width:1180px;margin:0 auto;padding:24px}
+  header{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:22px}
+  h1{font-size:28px;margin:0;letter-spacing:-.6px} .sub{margin:6px 0 0;color:var(--muted);font-size:14px}
+  .pill{font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted)}
+  .drop{background:var(--card);border:1.5px dashed #aaa;border-radius:16px;padding:24px;text-align:center;transition:.15s;margin-bottom:18px}
+  .drop.drag{border-color:#222;background:#fafafa}.drop strong{display:block;font-size:16px;margin-bottom:5px}.drop span{font-size:13px;color:var(--muted)}
+  .actions{margin-top:14px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.btn{border:1px solid #222;background:#222;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}.btn.secondary{background:#fff;color:#222;border-color:var(--line)}
+  input[type=file]{display:none}.notice{font-size:13px;margin:10px 0;color:var(--muted);min-height:19px}.notice.error{color:#9c2828}.notice.ok{color:var(--ok)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}.v{font-size:25px;font-weight:750;margin-top:6px;letter-spacing:-.5px}.small{font-size:12px;color:var(--muted);margin-top:4px}
+  .section{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:14px;overflow:hidden}.section-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.section-head h2{font-size:16px;margin:0}.section-head .meta{font-size:12px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px 12px;border-bottom:1px solid #ecece7;text-align:left;white-space:nowrap}th{font-size:11px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);background:#fbfbf8}tbody tr{cursor:pointer}tbody tr:hover{background:#fafaf7}td.num,th.num{text-align:right}.product-name{font-weight:650}.code{color:var(--muted);font-size:12px}
+  .empty{padding:38px;text-align:center;color:var(--muted);font-size:14px}.detail{display:none}.detail.show{display:block}.detail-top{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}.detail-top .d{background:#fafaf7;border:1px solid #ecece6;border-radius:10px;padding:12px}.d .label{font-size:11px;color:var(--muted);text-transform:uppercase}.d .value{font-size:18px;font-weight:700;margin-top:4px}.table-scroll{overflow:auto;max-height:470px}.tag{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;background:var(--soft);font-size:11px;color:var(--muted)}
+  .bars{height:128px;display:flex;align-items:end;gap:7px;padding:18px 18px 8px}.bar-wrap{flex:1;min-width:24px;text-align:center}.bar{background:#343434;border-radius:5px 5px 2px 2px;min-height:2px;position:relative}.bar:hover:after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translate(-50%,-6px);background:#111;color:#fff;padding:4px 6px;border-radius:5px;font-size:10px;white-space:nowrap}.bar-label{font-size:10px;color:var(--muted);margin-top:5px}.foot{font-size:11px;color:var(--muted);padding:18px 2px 8px}
+  @media(max-width:800px){.wrap{padding:14px}.grid{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}.detail-top{grid-template-columns:1fr 1fr}.section{border-radius:12px}.hide-mobile{display:none}}
+  @media(max-width:460px){.grid{grid-template-columns:1fr 1fr;gap:8px}.card{padding:12px}.v{font-size:20px}.detail-top{grid-template-columns:1fr}.drop{padding:20px 12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Auditoria do PDV</h1><p class="sub">Visualizador local de arquivos QuickReport (.QRP)</p></div>
+    <div class="pill">Calciolari Indústria de Alimentos</div>
+  </header>
+
+  <section id="drop" class="drop">
+    <strong>Arraste os arquivos .QRP aqui</strong>
+    <span>Você pode selecionar vários produtos de uma vez.</span>
+    <div class="actions">
+      <label class="btn" for="files">Selecionar arquivos</label>
+      <input id="files" type="file" accept=".qrp,application/octet-stream" multiple />
+      <button id="clear" class="btn secondary" type="button">Limpar dados locais</button>
+    </div>
+  </section>
+  <div id="notice" class="notice">Os arquivos são processados neste dispositivo.</div>
+
+  <div class="grid">
+    <div class="card"><div class="k">Produtos</div><div id="productsCount" class="v">0</div><div class="small">último relatório de cada produto</div></div>
+    <div class="card"><div class="k">Quantidade vendida</div><div id="qtyTotal" class="v">0,000</div><div class="small">soma das saídas</div></div>
+    <div class="card"><div class="k">Faturamento</div><div id="revenueTotal" class="v">R$ 0,00</div><div class="small">soma do total dos itens</div></div>
+    <div class="card"><div class="k">Cupons</div><div id="ticketsTotal" class="v">0</div><div class="small">números de venda únicos</div></div>
+  </div>
+
+  <section class="section">
+    <div class="section-head"><h2>Produtos importados</h2><div id="lastImport" class="meta"></div></div>
+    <div id="productsEmpty" class="empty">Importe um ou mais arquivos para começar.</div>
+    <div class="table-scroll"><table id="productsTable" hidden>
+      <thead><tr><th>Produto</th><th class="num">Qtd.</th><th class="num">Faturamento</th><th class="num hide-mobile">Preço</th><th class="num hide-mobile">Cupons</th><th class="hide-mobile">Relatório</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="hourSection" class="section" hidden>
+    <div class="section-head"><h2>Vendas por hora</h2><div class="meta">quantidade vendida</div></div>
+    <div id="bars" class="bars"></div>
+  </section>
+
+  <section id="detail" class="section detail">
+    <div class="section-head"><h2 id="detailTitle">Detalhes</h2><div id="detailMeta" class="meta"></div></div>
+    <div class="detail-top">
+      <div class="d"><div class="label">Produto</div><div id="dProduct" class="value"></div></div>
+      <div class="d"><div class="label">Quantidade</div><div id="dQty" class="value"></div></div>
+      <div class="d"><div class="label">Faturamento</div><div id="dRevenue" class="value"></div></div>
+      <div class="d"><div class="label">Cupons</div><div id="dTickets" class="value"></div></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Venda</th><th>Data</th><th>Hora</th><th class="num">Preço</th><th class="num">Desconto</th><th class="num">Qtd. saída</th><th class="num">Total item</th><th class="num hide-mobile">Anterior</th><th class="num hide-mobile">Posterior</th></tr></thead>
+      <tbody id="detailRows"></tbody>
+    </table></div>
+  </section>
+
+  <div class="foot">Protótipo local. Nenhum dado é enviado para um servidor.</div>
+</div>
+<script>
+const STORAGE_KEY = 'calciolari_qrp_snapshots_v1';
+let snapshots = loadSnapshots();
+const $ = s => document.querySelector(s);
+const money = n => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)||0);
+const num = (n,d=3) => new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(Number(n)||0);
+const brNumber = s => {
+  if (s == null || s === '') return null;
+  let v = String(s).replace(/R\$\s*/g,'').trim();
+  if (v.includes(',') && v.includes('.')) v = v.replace(/\./g,'').replace(',','.');
+  else if (v.includes(',')) v = v.replace(',','.');
+  v = v.replace(/[^0-9+\-.]/g,'');
+  const n = Number(v); return Number.isFinite(n) ? n : null;
+};
+function loadSnapshots(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return []}}
+function saveSnapshots(){localStorage.setItem(STORAGE_KEY,JSON.stringify(snapshots))}
+function sha256Hex(buffer){return crypto.subtle.digest('SHA-256',buffer).then(h=>[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''))}
+function u32(v,o){return v.getUint32(o,true)}
+function i32(v,o){return v.getInt32(o,true)}
+function isEmfAt(bytes,view,i){return i+56<=bytes.length && u32(view,i)===1 && bytes[i+40]===0x20 && bytes[i+41]===0x45 && bytes[i+42]===0x4d && bytes[i+43]===0x46}
+function findEmfPages(buffer){
+  const bytes=new Uint8Array(buffer), view=new DataView(buffer), pages=[];
+  for(let i=0;i+56<bytes.length;i++){
+    if(!isEmfAt(bytes,view,i)) continue;
+    const nBytes=u32(view,i+48);
+    if(nBytes>80 && i+nBytes<=bytes.length){pages.push({start:i,length:nBytes});i+=nBytes-1}
+  }
+  return pages;
+}
+function parseEmfTexts(buffer,page,pageIndex){
+  const view=new DataView(buffer), bytes=new Uint8Array(buffer), dec=new TextDecoder('utf-16le');
+  const out=[]; let pos=page.start, end=page.start+page.length, guard=0;
+  while(pos+8<=end && guard++<100000){
+    const type=u32(view,pos), size=u32(view,pos+4);
+    if(size<8 || pos+size>end) break;
+    if(type===84 && size>=76){
+      const x=i32(view,pos+36), y=i32(view,pos+40), chars=u32(view,pos+44), off=u32(view,pos+48);
+      const from=pos+off,to=from+chars*2;
+      if(chars<10000 && from>=pos && to<=pos+size){
+        const text=dec.decode(bytes.slice(from,to)).replace(/\0/g,'').trim();
+        if(text) out.push({page:pageIndex,x,y,text});
+      }
+    }
+    pos+=size; if(type===14) break;
+  }
+  return out;
+}
+function parseDateTime(s){const m=s?.match(/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2}:\d{2})/);return m?{date:m[1],time:m[2]}:{} }
+function parseQrp(buffer,fileName){
+  const pages=findEmfPages(buffer); if(!pages.length) throw new Error('Nenhuma página EMF reconhecida neste QRP.');
+  const items=pages.flatMap((p,i)=>parseEmfTexts(buffer,p,i));
+  const texts=items.map(i=>i.text);
+  const productText=texts.find(t=>/^Produto:/i.test(t));
+  const pm=productText?.match(/^Produto:\s*(\d+)\s*-\s*(.+)$/i);
+  const exportText=texts.find(t=>/^Data\/Hora:/i.test(t));
+  const manufacturer=(texts.find(t=>/^Fabricante:/i.test(t))||'').replace(/^Fabricante:\s*/i,'');
+  const stock=brNumber((texts.find(t=>/^Estoque Atual:/i.test(t))||'').replace(/^Estoque Atual:\s*/i,''));
+  if(!pm) throw new Error('Não encontrei o campo Produto neste relatório.');
+  const headers=['Preço','Desconto','Total Item','Data','Hora','Saidas','Entradas','Anterior','Posterior'];
+  const headerByPage={};
+  for(const it of items){
+    if(headers.includes(it.text)) (headerByPage[it.page]??={})[it.text]=it.x;
+  }
+  const groups=new Map();
+  for(const it of items){const k=`${it.page}:${it.y}`;(groups.get(k)??(groups.set(k,[]),groups.get(k))).push(it)}
+  const rows=[];
+  for(const group of groups.values()){
+    const sale=group.find(i=>/^Venda Numero:/i.test(i.text)); if(!sale) continue;
+    const sm=sale.text.match(/Venda Numero:\s*(\d+)/i); if(!sm) continue;
+    const hp=headerByPage[sale.page]||{}; const row={saleNumber:sm[1]};
+    for(const it of group){
+      if(it===sale) continue;
+      let best=null,dist=Infinity;
+      for(const h of headers){if(hp[h]==null)continue;const d=Math.abs(it.x-hp[h]);if(d<dist){dist=d;best=h}}
+      if(best && dist<75) row[best]=it.text;
+    }
+    rows.push({
+      saleNumber:row.saleNumber,
+      price:brNumber(row['Preço']), discount:brNumber(row['Desconto']), totalItem:brNumber(row['Total Item']),
+      date:row['Data']||'', time:row['Hora']||'', exits:brNumber(row['Saidas']), entries:brNumber(row['Entradas']),
+      previous:brNumber(row['Anterior']), posterior:brNumber(row['Posterior'])
+    });
+  }
+  const exp=parseDateTime(exportText);
+  return {fileName,productCode:pm[1],productName:pm[2].trim(),manufacturer,stock,exportDate:exp.date||'',exportTime:exp.time||'',rows,pages:pages.length};
+}
+async function importFiles(fileList){
+  const files=[...fileList].filter(f=>f.name.toLowerCase().endsWith('.qrp'));
+  if(!files.length){notice('Selecione arquivos .QRP.',true);return}
+  let ok=0, skipped=0, failed=[];
+  for(const file of files){
+    try{
+      const buffer=await file.arrayBuffer(); const hash=await sha256Hex(buffer);
+      if(snapshots.some(s=>s.hash===hash)){skipped++;continue}
+      const parsed=parseQrp(buffer,file.name); parsed.hash=hash;parsed.importedAt=new Date().toISOString();snapshots.push(parsed);ok++;
+    }catch(e){failed.push(`${file.name}: ${e.message}`)}
+  }
+  saveSnapshots();render();
+  if(failed.length) notice(`${ok} importado(s), ${skipped} repetido(s). Falhas: ${failed.join(' | ')}`,true);
+  else notice(`${ok} arquivo(s) importado(s)${skipped?`, ${skipped} já existia(m)`:''}.`,false,true);
+}
+function latestSnapshots(){
+  const by=new Map();
+  for(const s of snapshots){const key=s.productCode;const old=by.get(key);if(!old || new Date(s.importedAt)>new Date(old.importedAt)) by.set(key,s)}
+  return [...by.values()].sort((a,b)=>Number(a.productCode)-Number(b.productCode));
+}
+function stats(s){const qty=s.rows.reduce((a,r)=>a+(r.exits||0),0),rev=s.rows.reduce((a,r)=>a+(r.totalItem||0),0),tickets=new Set(s.rows.map(r=>r.saleNumber)).size;return{qty,rev,tickets}}
+function notice(msg,error=false,ok=false){const el=$('#notice');el.textContent=msg;el.className='notice'+(error?' error':ok?' ok':'')}
+function render(){
+  const latest=latestSnapshots(), allRows=latest.flatMap(s=>s.rows), qty=allRows.reduce((a,r)=>a+(r.exits||0),0), rev=allRows.reduce((a,r)=>a+(r.totalItem||0),0), tickets=new Set(allRows.map(r=>r.saleNumber)).size;
+  $('#productsCount').textContent=latest.length;$('#qtyTotal').textContent=num(qty);$('#revenueTotal').textContent=money(rev);$('#ticketsTotal').textContent=tickets;
+  const tb=$('#productsTable tbody');tb.innerHTML='';
+  for(const s of latest){const st=stats(s),tr=document.createElement('tr');tr.innerHTML=`<td><div class="product-name">${esc(s.productName)}</div><div class="code">cód. ${esc(s.productCode)}</div></td><td class="num">${num(st.qty)}</td><td class="num">${money(st.rev)}</td><td class="num hide-mobile">${money(s.rows.find(r=>r.price!=null)?.price||0)}</td><td class="num hide-mobile">${st.tickets}</td><td class="hide-mobile">${esc([s.exportDate,s.exportTime].filter(Boolean).join(' '))}</td>`;tr.onclick=()=>showDetail(s);tb.appendChild(tr)}
+  $('#productsTable').hidden=!latest.length;$('#productsEmpty').hidden=!!latest.length;
+  const last=snapshots.length?[...snapshots].sort((a,b)=>new Date(b.importedAt)-new Date(a.importedAt))[0]:null;$('#lastImport').textContent=last?`Última importação: ${new Date(last.importedAt).toLocaleString('pt-BR')}`:'';
+  renderBars(allRows); if(latest.length===1) showDetail(latest[0]); else if(!latest.length) $('#detail').classList.remove('show');
+}
+function renderBars(rows){
+  const hours=new Map();for(const r of rows){const h=Number((r.time||'').slice(0,2));if(Number.isFinite(h))hours.set(h,(hours.get(h)||0)+(r.exits||0))}
+  const sec=$('#hourSection'),box=$('#bars');box.innerHTML='';if(!hours.size){sec.hidden=true;return} sec.hidden=false;
+  const min=Math.min(...hours.keys()),max=Math.max(...hours.keys()),vals=[];for(let h=min;h<=max;h++)vals.push([h,hours.get(h)||0]);const peak=Math.max(...vals.map(v=>v[1]),.001);
+  for(const [h,v] of vals){const w=document.createElement('div');w.className='bar-wrap';w.innerHTML=`<div class="bar" data-tip="${num(v)}" style="height:${Math.max(2,(v/peak)*92)}px"></div><div class="bar-label">${String(h).padStart(2,'0')}h</div>`;box.appendChild(w)}
+}
+function showDetail(s){const st=stats(s);$('#detail').classList.add('show');$('#detailTitle').textContent='Auditoria detalhada';$('#detailMeta').textContent=`${s.fileName} • ${s.pages} página(s)`;$('#dProduct').textContent=`${s.productCode} - ${s.productName}`;$('#dQty').textContent=num(st.qty);$('#dRevenue').textContent=money(st.rev);$('#dTickets').textContent=st.tickets;const tb=$('#detailRows');tb.innerHTML='';
+  for(const r of s.rows){const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(r.saleNumber)}</td><td>${esc(r.date)}</td><td>${esc(r.time)}</td><td class="num">${r.price==null?'':money(r.price)}</td><td class="num">${r.discount==null?'':num(r.discount,2)}</td><td class="num">${r.exits==null?'':num(r.exits)}</td><td class="num">${r.totalItem==null?'':money(r.totalItem)}</td><td class="num hide-mobile">${r.previous==null?'':num(r.previous)}</td><td class="num hide-mobile">${r.posterior==null?'':num(r.posterior)}</td>`;tb.appendChild(tr)}
+  $('#detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('#files').addEventListener('change',e=>importFiles(e.target.files));
+const drop=$('#drop');['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',e=>importFiles(e.dataTransfer.files));
+$('#clear').onclick=()=>{if(confirm('Apagar os relatórios salvos neste navegador?')){snapshots=[];saveSnapshots();render();notice('Dados locais apagados.')}};
+render();
+</script>
+</body>
+</html>
