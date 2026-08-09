@@ -1,6 +1,7 @@
 package br.com.calciolari.datahub.analytics.api;
 
 import java.util.List;
+import java.util.UUID;
 
 public final class DashboardDtos {
 
@@ -15,12 +16,22 @@ public final class DashboardDtos {
 			String averageTicket,
 			String firstMovementAt,
 			String lastMovementAt,
-			List<DailyPoint> daily
+			List<DailyPoint> daily,
+			List<TopProduct> topProducts
 	) {
 	}
 
 	public record DailyPoint(
 			String date,
+			String quantity,
+			String revenue
+	) {
+	}
+
+	public record TopProduct(
+			UUID productId,
+			String name,
+			String externalId,
 			String quantity,
 			String revenue
 	) {

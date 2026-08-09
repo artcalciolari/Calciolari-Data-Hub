@@ -10,10 +10,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import br.com.calciolari.datahub.analytics.api.DashboardDtos.DailyPoint;
 import br.com.calciolari.datahub.analytics.api.DashboardDtos.DashboardResponse;
+import br.com.calciolari.datahub.analytics.api.DashboardDtos.TopProduct;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleRepository;
 
 @Service
@@ -59,6 +61,17 @@ public class DashboardQueryService {
 						entry.getValue()[0].stripTrailingZeros().toPlainString(),
 						entry.getValue()[1].stripTrailingZeros().toPlainString())));
 
+		List<TopProduct> topProducts = saleRepository
+				.topPublishedProducts(productId, fromBound, toBound, PageRequest.of(0, 5))
+				.stream()
+				.map(row -> new TopProduct(
+						(UUID) row[0],
+						(String) row[1],
+						(String) row[2],
+						nullToZero((BigDecimal) row[3]).stripTrailingZeros().toPlainString(),
+						nullToZero((BigDecimal) row[4]).stripTrailingZeros().toPlainString()))
+				.toList();
+
 		return new DashboardResponse(
 				decimal(revenue),
 				decimal(quantity),
@@ -67,7 +80,8 @@ public class DashboardQueryService {
 				averageTicket,
 				iso(saleRepository.minPublishedOccurredAt(productId, fromBound, toBound)),
 				iso(saleRepository.maxPublishedOccurredAt(productId, fromBound, toBound)),
-				daily);
+				daily,
+				topProducts);
 	}
 
 	private static BigDecimal nullToZero(BigDecimal value) {

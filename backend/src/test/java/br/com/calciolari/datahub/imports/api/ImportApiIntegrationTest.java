@@ -90,7 +90,12 @@ class ImportApiIntegrationTest {
 				.andExpect(jsonPath("$.salesCount").value(93))
 				.andExpect(jsonPath("$.itemCount").value(134))
 				.andExpect(jsonPath("$.quantityTotal").value("52.986"))
-				.andExpect(jsonPath("$.revenueTotal").value("3013.07"));
+				.andExpect(jsonPath("$.revenueTotal").value("3013.07"))
+				.andExpect(jsonPath("$.topProducts.length()").value(1))
+				.andExpect(jsonPath("$.topProducts[0].name").value("MOLHO POMODORO"))
+				.andExpect(jsonPath("$.topProducts[0].externalId").value("41"))
+				.andExpect(jsonPath("$.topProducts[0].quantity").value("52.986"))
+				.andExpect(jsonPath("$.topProducts[0].revenue").value("3013.07"));
 
 		MockMultipartFile copy = new MockMultipartFile(
 				"files",

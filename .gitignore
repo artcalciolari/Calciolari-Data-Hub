@@ -32,6 +32,7 @@ Thumbs.db
 
 # Local raw storage / temp uploads (runtime, never commit)
 /data/
+/backend/data/
 /raw-storage/
 
 # Accidental QRP drops at repo root — fixtures under test resources are allowed
@@ -44,3 +45,7 @@ logs/
 
 # Maven wrapper jar (script-only distribution)
 .mvn/wrapper/maven-wrapper.jar
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
