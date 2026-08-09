@@ -5,33 +5,34 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 
 ## Estado atual
 
-Implementação em andamento (Fase 3A):
+- Parser InterPDV QRP (PoC port) + Fixtures A/B
+- Persistência PostgreSQL/Flyway, raw storage, dedup
+- API REST: imports, products, sales, dashboard
+- Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
 
-- PoC preservado em `docs/poc/index.html`
-- Parser backend Java portado do PoC (`backend/…/interpdv/qrp`)
-- Fixtures A e B com regressão §13.2
-- Persistência PostgreSQL + Flyway + `LocalRawFileStorage` + ingestão/dedup
-- API HTTP e frontend ainda não iniciados (Fase 3B/4)
-
-Ver `IMPLEMENTATION_PLAN.md`, `docs/fase-0-status.md`, `docs/qrp-format.md` e `docs/decisions/`.
-
-## Stack fixada
-
-Ver `docs/versions.md` (Java 21, Spring Boot 4.1.0, PostgreSQL 18.4 no Compose).
+Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/qrp-format.md`, `docs/decisions/`.
 
 ## Backend
 
 ```bash
+# DB: postgres em localhost:5432 / datahub / change-me
 cd backend
 ./mvnw test
+SPRING_DATASOURCE_PASSWORD=change-me ./mvnw spring-boot:run
 ```
 
-Integração espera JDBC em `jdbc:postgresql://127.0.0.1:5432/datahub`
-(usuário/senha `datahub`/`datahub`, sobrescrevíveis via `DATAHUB_TEST_JDBC_*`).
+## Frontend
 
-Fixtures: `backend/src/test/resources/fixtures/qrp/fixture-{a,b}.qrp`.
+```bash
+cd frontend
+npm install
+npm run dev        # http://127.0.0.1:5173 (proxy /api -> :8080)
+npm run test       # vitest
+npm run typecheck  # tsc -b
+npx playwright test  # E2E (mobile + desktop) com backend em :8080
+```
 
-## Infra local
+## Infra
 
 ```bash
 cp .env.example .env
