@@ -75,4 +75,16 @@ public final class ImportDtos {
 			List<ImportFileSummary> files
 	) {
 	}
+
+	public record ReprocessResponse(
+			UUID importFileId,
+			UUID rawArtifactId,
+			UUID previousActiveParseAttemptId,
+			UUID parseAttemptId,
+			boolean published,
+			String parseStatus,
+			String fileStatus,
+			int recordsFound
+	) {
+	}
 }

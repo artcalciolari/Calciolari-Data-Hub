@@ -20,8 +20,8 @@ Ver `.env.example`. Principais:
 - **Local / rede controlada:** `datahub.security.enabled=false` (default). A API fica aberta; mantenha atrás de VPN/firewall. Não publique na internet.
 - **Produção:** perfil `production` força `datahub.security.enabled=true` e falha o startup se não houver usuários. Roles:
   - `VIEWER` — `GET /api/**`
-  - `IMPORTER` — VIEWER + `POST /api/imports/**`
-  - `ADMIN` — tudo + `/actuator/metrics`
+  - `IMPORTER` — VIEWER + `POST /api/imports/qrp` (upload)
+  - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess` + `/actuator/metrics`
 - `/actuator/health` e `/actuator/info` permanecem públicos.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - CORS vazio = same-origin only. Prefira reverse-proxy same-origin em produção.
@@ -98,3 +98,18 @@ cd frontend && npm run build && npm run preview
 ```
 
 Instalável em HTTPS ou `localhost`.
+
+## Reprocessamento
+
+```bash
+curl -u admin:… -X POST http://localhost:8080/api/imports/files/<fileId>/reprocess
+```
+
+- Bytes brutos imutáveis; corrupção (hash/tamanho) → `409`, sem nova tentativa.
+- Sucesso troca `artifact_publication.active_parse_attempt_id` na mesma transação da publicação.
+- Falha de parse preserva o pointer anterior; tentativa fica auditável.
+- Não há botão na UI principal do MVP.
+
+## Riscos residuais
+
+Ver `docs/residuals.md`.

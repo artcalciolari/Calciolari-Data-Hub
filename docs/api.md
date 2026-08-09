@@ -10,6 +10,7 @@ Base path: `/api`. Money/quantities are decimal **strings**. `LocalDateTime` is 
 | `GET` | `/api/imports` | paginated jobs |
 | `GET` | `/api/imports/{jobId}` | job + file summaries |
 | `GET` | `/api/imports/{jobId}/files/{fileId}` | admin detail (hash, hints, validations) |
+| `POST` | `/api/imports/files/{fileId}/reprocess` | Admin only (`ADMIN` when security on). Verifies raw via `openVerified`, new parse attempt, atomic swap of `active_parse_attempt_id` on success. Failure keeps prior pointer. `409` on corruption or active lease. Not in primary UI nav. |
 
 ## Catalog / sales / analytics
 
@@ -25,7 +26,7 @@ Queries only include rows from `artifact_publication.active_parse_attempt_id`.
 
 ## Auth (when `datahub.security.enabled=true`)
 
-HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST imports), `ADMIN` (all + actuator metrics).
+HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST upload), `ADMIN` (reprocess + actuator metrics + all).
 
 Unauthenticated API calls → `401`. Insufficient role → `403`.
 
