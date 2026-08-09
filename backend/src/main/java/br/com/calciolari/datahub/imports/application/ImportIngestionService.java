@@ -123,6 +123,56 @@ public class ImportIngestionService {
 	}
 
 	public ImportedFileResult ingest(InputStream content, String originalFilename) {
+		UUID jobId = createJob();
+		ImportedFileResult result = ingestIntoJob(jobId, content, originalFilename);
+		completeJob(jobId);
+		ImportJobEntity job = importJobRepository.findById(jobId).orElseThrow();
+		return new ImportedFileResult(
+				result.jobId(),
+				result.importFileId(),
+				result.rawArtifactId(),
+				result.parseAttemptId(),
+				result.sha256(),
+				result.originalFilename(),
+				result.deduplicated(),
+				result.published(),
+				job.getStatus(),
+				result.fileStatus(),
+				result.parseStatus(),
+				result.recordsFound(),
+				result.parsedQuantityTotal(),
+				result.parsedRevenueTotal());
+	}
+
+	public UUID createJob() {
+		return transactionTemplate.execute(status -> {
+			ImportJobEntity job = importJobRepository.save(new ImportJobEntity(UUID.randomUUID(), "PROCESSING"));
+			return job.getId();
+		});
+	}
+
+	public void completeJob(UUID jobId) {
+		transactionTemplate.executeWithoutResult(status -> {
+			ImportJobEntity job = importJobRepository.findById(jobId).orElseThrow();
+			List<ImportFileEntity> files = importFileRepository.findByImportJobIdOrderByCreatedAtAsc(jobId);
+			long imported = files.stream().filter(f -> "IMPORTED".equals(f.getStatus()) || "WARNING".equals(f.getStatus())).count();
+			long failed = files.stream().filter(f -> "INVALID".equals(f.getStatus()) || "FAILED".equals(f.getStatus())).count();
+			if (files.isEmpty() || (failed > 0 && imported == 0)) {
+				job.setStatus("FAILED");
+			}
+			else if (failed > 0) {
+				job.setStatus("PARTIAL_SUCCESS");
+			}
+			else {
+				job.setStatus("SUCCEEDED");
+			}
+			job.setCompletedAt(Instant.now());
+			importJobRepository.save(job);
+		});
+	}
+
+	public ImportedFileResult ingestIntoJob(UUID jobId, InputStream content, String originalFilename) {
+		Objects.requireNonNull(jobId, "jobId");
 		Objects.requireNonNull(content, "content");
 		String filename = originalFilename == null ? "" : originalFilename;
 		SpoolResult spool = spoolAndHash(content);
@@ -138,7 +188,7 @@ public class ImportIngestionService {
 		DataIntegrityViolationException lastConflict = null;
 		for (int attempt = 0; attempt < 5; attempt++) {
 			try {
-				ctx = transactionTemplate.execute(status -> openOrCreateOnce(spool, stored, filename, hintsJson));
+				ctx = transactionTemplate.execute(status -> openOrCreateOnce(jobId, spool, stored, filename, hintsJson));
 				break;
 			}
 			catch (DataIntegrityViolationException ex) {
@@ -167,12 +217,19 @@ public class ImportIngestionService {
 		return transactionTemplate.execute(status -> finalizeParse(ingestContext, parsed));
 	}
 
-	private IngestContext openOrCreateOnce(SpoolResult spool, StoredRawFile stored, String filename, String hintsJson) {
+	private IngestContext openOrCreateOnce(
+			UUID jobId,
+			SpoolResult spool,
+			StoredRawFile stored,
+			String filename,
+			String hintsJson) {
+		ImportJobEntity job = importJobRepository.findById(jobId)
+				.orElseThrow(() -> new IllegalArgumentException("unknown job " + jobId));
+
 		Optional<RawArtifactEntity> existing = rawArtifactRepository.findBySha256(spool.sha256());
 		RawArtifactEntity artifact = existing.orElseGet(() -> rawArtifactRepository.save(new RawArtifactEntity(
 				UUID.randomUUID(), spool.sha256(), spool.bytes().length, stored.storageKey(), "QRP")));
 
-		ImportJobEntity job = importJobRepository.save(new ImportJobEntity(UUID.randomUUID(), "PROCESSING"));
 		ImportFileEntity file = new ImportFileEntity(
 				UUID.randomUUID(), job.getId(), artifact.getId(), filename, SOURCE, "PENDING");
 		file.setFilenameHints(hintsJson);
@@ -198,19 +255,13 @@ public class ImportIngestionService {
 			if ("VALID".equals(attempt.getStatus()) || "WARNING".equals(attempt.getStatus())) {
 				file.setStatus(published ? "IMPORTED" : mapFileStatus(attempt.getStatus()));
 				file.setCompletedAt(Instant.now());
-				job.setStatus("SUCCEEDED");
-				job.setCompletedAt(Instant.now());
 				importFileRepository.save(file);
-				importJobRepository.save(job);
 				return new IngestContext(job, file, artifact, attempt, true, published);
 			}
 			if ("INVALID".equals(attempt.getStatus())) {
 				file.setStatus("INVALID");
 				file.setCompletedAt(Instant.now());
-				job.setStatus("FAILED");
-				job.setCompletedAt(Instant.now());
 				importFileRepository.save(file);
-				importJobRepository.save(job);
 				return new IngestContext(job, file, artifact, attempt, true, false);
 			}
 			// FAILED — create new attempt count
@@ -303,10 +354,6 @@ public class ImportIngestionService {
 		file.setStatus(published ? "IMPORTED" : mapFileStatus(parseStatus));
 		file.setCompletedAt(Instant.now());
 		importFileRepository.save(file);
-
-		job.setStatus(published || "WARNING".equals(parseStatus) || "VALID".equals(parseStatus) ? "SUCCEEDED" : "FAILED");
-		job.setCompletedAt(Instant.now());
-		importJobRepository.save(job);
 
 		return toResult(new IngestContext(job, file, ctx.artifact(), attempt, ctx.skipParse(), published), parsed, published);
 	}

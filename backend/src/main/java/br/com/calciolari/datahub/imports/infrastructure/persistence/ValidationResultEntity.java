@@ -81,4 +81,28 @@ public class ValidationResultEntity {
 	public String getStatus() {
 		return status;
 	}
+
+	public java.math.BigDecimal getSourceValue() {
+		return sourceValue;
+	}
+
+	public java.math.BigDecimal getCalculatedValue() {
+		return calculatedValue;
+	}
+
+	public java.math.BigDecimal getDifference() {
+		return difference;
+	}
+
+	public java.math.BigDecimal getTolerance() {
+		return tolerance;
+	}
+
+	public String getRuleVersion() {
+		return ruleVersion;
+	}
+
+	public String getSourceLocator() {
+		return sourceLocator;
+	}
 }

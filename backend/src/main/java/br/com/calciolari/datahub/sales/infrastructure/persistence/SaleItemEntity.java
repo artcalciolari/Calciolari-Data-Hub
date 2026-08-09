@@ -96,4 +96,16 @@ public class SaleItemEntity {
 	public BigDecimal getTotal() {
 		return total;
 	}
+
+	public BigDecimal getQuantity() {
+		return quantity;
+	}
+
+	public BigDecimal getUnitPrice() {
+		return unitPrice;
+	}
+
+	public BigDecimal getDiscountPercentage() {
+		return discountPercentage;
+	}
 }

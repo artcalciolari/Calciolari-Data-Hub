@@ -9,5 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ImportFileRepository extends JpaRepository<ImportFileEntity, UUID> {
 	List<ImportFileEntity> findByRawArtifactIdOrderByCreatedAtAsc(UUID rawArtifactId);
 
+	List<ImportFileEntity> findByImportJobIdOrderByCreatedAtAsc(UUID importJobId);
+
 	Optional<ImportFileEntity> findFirstByRawArtifactIdAndDeduplicatedFalseOrderByCreatedAtAsc(UUID rawArtifactId);
 }
