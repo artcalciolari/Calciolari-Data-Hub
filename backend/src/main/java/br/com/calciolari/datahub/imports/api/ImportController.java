@@ -25,6 +25,7 @@ import br.com.calciolari.datahub.imports.api.ImportDtos.ImportJobResponse;
 import br.com.calciolari.datahub.imports.application.ImportIngestionService;
 import br.com.calciolari.datahub.imports.application.ImportQueryService;
 import br.com.calciolari.datahub.imports.application.ImportedFileResult;
+import br.com.calciolari.datahub.imports.infrastructure.config.ImportLimitsProperties;
 import br.com.calciolari.datahub.shared.api.PageParams;
 import br.com.calciolari.datahub.shared.api.PageResponse;
 
@@ -32,15 +33,17 @@ import br.com.calciolari.datahub.shared.api.PageResponse;
 @RequestMapping("/api/imports")
 public class ImportController {
 
-	private static final int MAX_FILES = 20;
-	private static final long MAX_FILE_BYTES = 32L * 1024 * 1024;
-
 	private final ImportIngestionService ingestionService;
 	private final ImportQueryService queryService;
+	private final ImportLimitsProperties limits;
 
-	public ImportController(ImportIngestionService ingestionService, ImportQueryService queryService) {
+	public ImportController(
+			ImportIngestionService ingestionService,
+			ImportQueryService queryService,
+			ImportLimitsProperties limits) {
 		this.ingestionService = ingestionService;
 		this.queryService = queryService;
+		this.limits = limits;
 	}
 
 	@PostMapping(path = "/qrp", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -49,8 +52,9 @@ public class ImportController {
 		if (files == null || files.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "files[] is required");
 		}
-		if (files.size() > MAX_FILES) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "too many files (max " + MAX_FILES + ")");
+		if (files.size() > limits.getMaxFiles()) {
+			throw new ResponseStatusException(
+					HttpStatus.BAD_REQUEST, "too many files (max " + limits.getMaxFiles() + ")");
 		}
 		for (MultipartFile file : files) {
 			validateFile(file);
@@ -92,11 +96,11 @@ public class ImportController {
 		return queryService.getFile(jobId, fileId);
 	}
 
-	private static void validateFile(MultipartFile file) {
+	private void validateFile(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "empty file rejected");
 		}
-		if (file.getSize() > MAX_FILE_BYTES) {
+		if (file.getSize() > limits.getMaxFileBytes()) {
 			throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "file exceeds size limit");
 		}
 		String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();

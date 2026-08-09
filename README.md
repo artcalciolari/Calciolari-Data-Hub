@@ -9,8 +9,9 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 - Persistência PostgreSQL/Flyway, raw storage, dedup
 - API REST: imports, products, sales, dashboard
 - Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
+- PWA instalável (app shell only) + segurança operacional / backup
 
-Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/qrp-format.md`, `docs/decisions/`.
+Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/ops.md`, `docs/qrp-format.md`, `docs/decisions/`.
 
 ## Backend
 
@@ -19,6 +20,8 @@ Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/qrp-format.md`, `docs/decisio
 cd backend
 ./mvnw test
 SPRING_DATASOURCE_PASSWORD=change-me ./mvnw spring-boot:run
+# Produção (auth obrigatória):
+# SPRING_PROFILES_ACTIVE=production DATAHUB_SECURITY_USERS='admin:…:ADMIN|…' ./mvnw spring-boot:run
 ```
 
 ## Frontend
@@ -27,6 +30,8 @@ SPRING_DATASOURCE_PASSWORD=change-me ./mvnw spring-boot:run
 cd frontend
 npm install
 npm run dev        # http://127.0.0.1:5173 (proxy /api -> :8080)
+npm run build      # gera SW + manifest
+npm run preview    # serve o build (PWA instalável em localhost)
 npm run test       # vitest
 npm run typecheck  # tsc -b
 npx playwright test  # E2E (mobile + desktop) com backend em :8080
@@ -38,3 +43,20 @@ npx playwright test  # E2E (mobile + desktop) com backend em :8080
 cp .env.example .env
 docker compose up -d   # quando Docker estiver disponível
 ```
+
+## Backup / restore
+
+Trate PostgreSQL + `DATAHUB_RAW_STORAGE_ROOT` como uma unidade lógica:
+
+```bash
+./scripts/backup.sh ./backups
+./scripts/restore.sh ./backups/datahub-YYYYMMDD-HHMMSS
+```
+
+Detalhes em `docs/ops.md`.
+
+## Segurança (resumo)
+
+- Default local: API aberta — **somente em rede controlada**.
+- Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`).
+- Não exponha na internet sem autenticação. CORS vazio = same-origin.

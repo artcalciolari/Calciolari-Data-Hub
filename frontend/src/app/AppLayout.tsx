@@ -1,10 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { NAV_ITEMS } from '@/shared/api'
 import { Icon } from '@/shared/icons'
+import { PwaUpdateBanner } from '@/shared/PwaUpdateBanner'
 
 export function AppLayout() {
   return (
     <div className="app-shell">
+      <PwaUpdateBanner />
       <header className="app-header">
         <div>
           <p className="brand">Calciolari Data Hub</p>

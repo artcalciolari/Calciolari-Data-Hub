@@ -796,12 +796,34 @@ tr.link-row:hover {
   margin-top: 4px;
 }
 
-.back-link {
-  display: inline-flex;
+.pwa-banner {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 8px;
-  color: var(--muted);
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--nocciola);
+  color: var(--crema);
+  font-size: 14px;
+  font-weight: 500;
+  animation: fadeUp 280ms ease both;
+}
+
+.pwa-banner .btn.primary {
+  background: var(--sole);
+  color: var(--nocciola);
+  border-color: var(--sole);
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+.pwa-banner .btn.secondary {
+  background: transparent;
+  color: var(--crema);
+  border-color: rgba(245, 235, 225, 0.35);
+  min-height: 36px;
+  padding: 6px 12px;
 }
 
 /* ---------- responsive ---------- */
