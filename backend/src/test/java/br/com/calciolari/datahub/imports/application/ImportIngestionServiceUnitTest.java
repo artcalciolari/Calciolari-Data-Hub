@@ -544,6 +544,133 @@ class ImportIngestionServiceUnitTest {
 		assertEquals("WARNING", result.parseStatus());
 	}
 
+	@Test
+	void reprocessIntegrityIoExceptionOnFirstOpen() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		ImportFileEntity file = new ImportFileEntity(fileId, UUID.randomUUID(), artifactId, "f.qrp", "INTERPDV", "IMPORTED");
+		RawArtifactEntity artifact = new RawArtifactEntity(artifactId, "e".repeat(64), 1, "00/00/" + "e".repeat(64), "QRP");
+		when(files.findById(fileId)).thenReturn(Optional.of(file));
+		when(rawArtifacts.findById(artifactId)).thenReturn(Optional.of(artifact));
+		doAnswer(inv -> { throw new IOException("disk"); })
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
+		assertThrows(UncheckedIOException.class, () -> service.reprocess(fileId));
+	}
+
+	@Test
+	void reprocessClaimPendingLeaseConflictAndInvalidError() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		ImportFileEntity file = new ImportFileEntity(fileId, UUID.randomUUID(), artifactId, "f.qrp", "INTERPDV", "IMPORTED");
+		RawArtifactEntity artifact = new RawArtifactEntity(artifactId, "f".repeat(64), 1, "00/00/" + "f".repeat(64), "QRP");
+		when(files.findById(fileId)).thenReturn(Optional.of(file));
+		when(rawArtifacts.findById(artifactId)).thenReturn(Optional.of(artifact));
+		when(rawArtifacts.findWithLockById(artifactId)).thenReturn(Optional.of(artifact));
+		doAnswer(inv -> new ByteArrayInputStream(new byte[] {1}))
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
+		when(publications.findByRawArtifactId(artifactId)).thenReturn(Optional.empty());
+
+		ParseAttemptEntity pendingLeased = attempt(artifactId, "PENDING", 1);
+		pendingLeased.setLeaseUntil(Instant.now().plusSeconds(120));
+		pendingLeased.setLeaseOwner("holder");
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.of(pendingLeased));
+		assertEquals(HttpStatus.CONFLICT, status(() -> service.reprocess(fileId)));
+
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.empty());
+		final String[] lease = new String[1];
+		when(attempts.save(any())).thenAnswer(inv -> {
+			ParseAttemptEntity a = inv.getArgument(0);
+			if (a.getLeaseOwner() != null && a.getLeaseOwner().startsWith("reprocess-")) {
+				lease[0] = a.getLeaseOwner();
+			}
+			return a;
+		});
+		when(attempts.findById(any())).thenAnswer(inv -> {
+			ParseAttemptEntity real = new ParseAttemptEntity(inv.getArgument(0), artifactId,
+					InterPdvQrpParser.PARSER_NAME, InterPdvQrpParser.PARSER_VERSION, "PROCESSING", 1);
+			real.setLeaseOwner(lease[0]);
+			return Optional.of(real);
+		});
+		org.mockito.Mockito.doReturn(validParsed(List.of(), List.of(
+				new ParseIssue("E", IssueSeverity.ERROR, IssueStage.VALIDATION, SourceLocator.empty(), "err"))))
+				.when(parser).parse(any());
+		ImportIngestionService.ReprocessResult invalid = service.reprocess(fileId);
+		assertEquals("INVALID", invalid.parseStatus());
+		assertFalse(invalid.published());
+	}
+
+	@Test
+	void publishSkipsIncompleteOutSalesAndNullLocatorIssue() {
+		UUID jobId = UUID.randomUUID();
+		when(jobs.findById(jobId)).thenReturn(Optional.of(new ImportJobEntity(jobId, "PROCESSING")));
+		stubNewArtifactIngest();
+
+		ParseIssue nullLocator = mock(ParseIssue.class);
+		when(nullLocator.stage()).thenReturn(IssueStage.VALIDATION);
+		when(nullLocator.severity()).thenReturn(IssueSeverity.INFO);
+		when(nullLocator.code()).thenReturn("LOC");
+		when(nullLocator.message()).thenReturn("plain");
+		when(nullLocator.sourceLocator()).thenReturn(null);
+
+		org.mockito.Mockito.doReturn(validParsed(List.of(
+				new ParsedMovement(0, MovementDirection.OUT, "41", "N", "Q1", LocalDateTime.now(),
+						null, BigDecimal.ONE, null, BigDecimal.ONE, null, null, null, SourceLocator.empty()),
+				new ParsedMovement(1, MovementDirection.OUT, "41", "N", "Q2", LocalDateTime.now(),
+						BigDecimal.ONE, null, null, BigDecimal.ONE, null, null, null, SourceLocator.empty()),
+				new ParsedMovement(2, MovementDirection.OUT, "41", "N", "Q3", LocalDateTime.now(),
+						BigDecimal.ONE, BigDecimal.ONE, null, null, null, null, null, SourceLocator.empty()),
+				outSale("OK")),
+				List.of(nullLocator))).when(parser).parse(any());
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		stubPublishHappy();
+		ImportedFileResult result = service.ingestIntoJob(jobId, new ByteArrayInputStream(new byte[] {1}), "inc.qrp");
+		assertTrue(result.published());
+		verify(validations, atLeastOnce()).save(any());
+	}
+
+	@Test
+	void skipParseProcessingAndNullRecordsFound() {
+		UUID jobId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		when(jobs.findById(jobId)).thenReturn(Optional.of(new ImportJobEntity(jobId, "PROCESSING")));
+		byte[] bytes = new byte[] {7};
+		when(storage.putIfAbsent(any(), any())).thenAnswer(this::storedFromDescriptor);
+		when(rawArtifacts.findBySha256(anyString())).thenAnswer(inv -> Optional.of(
+				new RawArtifactEntity(artifactId, inv.getArgument(0), 1L, "00/00/" + inv.getArgument(0), "QRP")));
+		when(files.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(files.findFirstByRawArtifactIdAndDeduplicatedFalseOrderByCreatedAtAsc(artifactId))
+				.thenReturn(Optional.empty());
+		when(publications.findByRawArtifactId(artifactId)).thenReturn(Optional.empty());
+
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(eq(artifactId), any(), any()))
+				.thenReturn(Optional.of(attempt(artifactId, "PROCESSING", 1)));
+		assertEquals("PROCESSING", service.ingestIntoJob(jobId, new ByteArrayInputStream(bytes), "p.qrp").fileStatus());
+
+		ParseAttemptEntity valid = attempt(artifactId, "VALID", 1);
+		valid.setRecordsFound(null);
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(eq(artifactId), any(), any()))
+				.thenReturn(Optional.of(valid));
+		ImportedFileResult skipped = service.ingestIntoJob(jobId, new ByteArrayInputStream(bytes), "p.qrp");
+		assertEquals(0, skipped.recordsFound());
+	}
+
+	@Test
+	void finalizeParseEmptySaleIdsStillPublishes() {
+		UUID jobId = UUID.randomUUID();
+		when(jobs.findById(jobId)).thenReturn(Optional.of(new ImportJobEntity(jobId, "PROCESSING")));
+		stubNewArtifactIngest();
+		org.mockito.Mockito.doReturn(validParsed(List.of(
+				new ParsedMovement(0, MovementDirection.IN, "41", "N", null, null, null, null, null, null, null, null, null, SourceLocator.empty())),
+				List.of())).when(parser).parse(any());
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(true);
+		stubPublishHappy();
+		ImportedFileResult result = service.ingestIntoJob(jobId, new ByteArrayInputStream(new byte[] {1}), "in.qrp");
+		assertTrue(result.published());
+		assertEquals("VALID", result.parseStatus());
+	}
+
 	private void stubNewArtifactIngest() {
 		stubNewArtifactIngestWithoutOpen();
 		when(storage.openVerified(anyString(), anyString(), anyLong())).thenReturn(new ByteArrayInputStream(new byte[] {1}));

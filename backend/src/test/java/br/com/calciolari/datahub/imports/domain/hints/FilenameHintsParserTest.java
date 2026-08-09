@@ -84,4 +84,32 @@ class FilenameHintsParserTest {
 		assertEquals(15, hints.singleDateHint().orElseThrow().day());
 		assertEquals(8, hints.singleDateHint().orElseThrow().month());
 	}
+
+	@Test
+	void rejectsOutOfRangeDayAndMonth() throws Exception {
+		assertTrue(parser.parse("x_32_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_10_13.QRP").isEmpty());
+		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_07_00.QRP").isEmpty());
+		assertTrue(parser.parse("bad_32/07-01/08.QRP").isEmpty());
+		assertTrue(parser.parse("bad_01/08-32/07.QRP").isEmpty());
+
+		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
+		toDate.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "15", "13")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "0", "7")).isEmpty());
+
+		var toRange = FilenameHintsParser.class.getDeclaredMethod(
+				"toRange", String.class, String.class, String.class, String.class);
+		toRange.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "xx", "01", "01", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "yy", "01")).isEmpty());
+	}
+
+	@Test
+	void stripExtensionEdgeCases() {
+		assertTrue(parser.parse(".hidden").isEmpty());
+		assertTrue(parser.parse("noext").isEmpty());
+		assertTrue(parser.parse("15/08").singleDateHint().isPresent());
+	}
 }
