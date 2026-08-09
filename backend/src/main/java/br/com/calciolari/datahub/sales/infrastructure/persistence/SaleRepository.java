@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import br.com.calciolari.datahub.catalog.infrastructure.persistence.ProductEntity;
+
 public interface SaleRepository extends JpaRepository<SaleEntity, UUID> {
 	Optional<SaleEntity> findByExternalSourceAndExternalSaleId(String externalSource, String externalSaleId);
 
@@ -126,4 +128,21 @@ public interface SaleRepository extends JpaRepository<SaleEntity, UUID> {
 			@Param("productId") UUID productId,
 			@Param("fromTs") LocalDateTime fromTs,
 			@Param("toTs") LocalDateTime toTs);
+
+	@Query("""
+			select p.id, p.name, p.externalId, sum(si.quantity), sum(si.total)
+			from SaleItemEntity si, SaleEntity s, ArtifactPublicationEntity ap, ProductEntity p
+			where si.saleId = s.id and si.parseAttemptId = ap.activeParseAttemptId
+			  and p.id = si.productId
+			  and (:productId is null or si.productId = :productId)
+			  and s.occurredAt >= :fromTs
+			  and s.occurredAt <= :toTs
+			group by p.id, p.name, p.externalId
+			order by sum(si.total) desc
+			""")
+	List<Object[]> topPublishedProducts(
+			@Param("productId") UUID productId,
+			@Param("fromTs") LocalDateTime fromTs,
+			@Param("toTs") LocalDateTime toTs,
+			Pageable pageable);
 }
