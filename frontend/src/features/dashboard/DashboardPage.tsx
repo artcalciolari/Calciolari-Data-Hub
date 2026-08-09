@@ -54,10 +54,10 @@ export function DashboardPage() {
       </section>
 
       <section className="grid cards-4">
-        <Kpi icon="box" label="Quantidade" value={formatQuantity(data.quantityTotal)} />
-        <Kpi icon="receipt" label="Vendas" value={formatInteger(data.salesCount)} />
-        <Kpi icon="list" label="Itens" value={formatInteger(data.itemCount)} />
-        <Kpi icon="money" label="Ticket médio" value={data.averageTicket ? formatMoney(data.averageTicket) : '—'} />
+        <Kpi icon="inventory" label="Quantidade" value={formatQuantity(data.quantityTotal)} />
+        <Kpi icon="cart" label="Vendas" value={formatInteger(data.salesCount)} />
+        <Kpi icon="items" label="Itens" value={formatInteger(data.itemCount)} />
+        <Kpi icon="ticket" label="Ticket médio" value={data.averageTicket ? formatMoney(data.averageTicket) : '—'} />
       </section>
 
       <section className="section">
@@ -165,7 +165,7 @@ export function DashboardPage() {
 function Kpi({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
     <div className="card kpi">
-      <span className="kpi-icon"><Icon name={icon} size={18} /></span>
+      <span className="kpi-icon"><Icon name={icon} size={20} /></span>
       <div>
         <div className="k">{label}</div>
         <div className="v">{value}</div>

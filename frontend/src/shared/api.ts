@@ -226,7 +226,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Resumo', icon: 'chart' },
-  { to: '/sales', label: 'Vendas', icon: 'receipt' },
-  { to: '/products', label: 'Produtos', icon: 'box' },
+  { to: '/sales', label: 'Vendas', icon: 'cart' },
+  { to: '/products', label: 'Produtos', icon: 'tag' },
   { to: '/imports', label: 'Importar', icon: 'upload' },
 ]
