@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Calciolari Data Hub (seeded backend)', () => {
-  test('dashboard shows published totals', async ({ page }) => {
+  test('dashboard shows published totals and rankings', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Resumo' })).toBeVisible()
-    await expect(page.getByText('Faturamento')).toBeVisible()
+    await expect(page.getByText('Faturamento no período')).toBeVisible()
     await expect(page.getByText(/3\.705,88/)).toBeVisible()
     await expect(page.getByText(/63,828/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Evolução diária' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Top produtos' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Vendas recentes' })).toBeVisible()
+    await page.getByRole('button', { name: 'Qtd' }).click()
+    await expect(page.getByRole('button', { name: 'Qtd' })).toHaveClass(/active/)
     const navName = test.info().project.name === 'mobile' ? 'Navegação inferior' : 'Navegação principal'
     await expect(page.getByRole('navigation', { name: navName })).toBeVisible()
   })

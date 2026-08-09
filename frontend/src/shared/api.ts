@@ -100,6 +100,14 @@ export interface DailyPoint {
   revenue: string
 }
 
+export interface TopProduct {
+  productId: string
+  name: string
+  externalId: string
+  quantity: string
+  revenue: string
+}
+
 export interface DashboardResponse {
   revenueTotal: string
   quantityTotal: string
@@ -109,6 +117,7 @@ export interface DashboardResponse {
   firstMovementAt: string | null
   lastMovementAt: string | null
   daily: DailyPoint[]
+  topProducts: TopProduct[]
 }
 
 export class ApiError extends Error {
