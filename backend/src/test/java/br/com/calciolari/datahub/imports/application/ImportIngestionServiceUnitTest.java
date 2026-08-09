@@ -2,6 +2,7 @@ package br.com.calciolari.datahub.imports.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,7 +11,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,11 +67,13 @@ import br.com.calciolari.datahub.imports.infrastructure.persistence.ParseAttempt
 import br.com.calciolari.datahub.imports.infrastructure.persistence.ParsedMovementRepository;
 import br.com.calciolari.datahub.imports.infrastructure.persistence.RawArtifactEntity;
 import br.com.calciolari.datahub.imports.infrastructure.persistence.RawArtifactRepository;
+import br.com.calciolari.datahub.imports.infrastructure.persistence.ValidationResultEntity;
 import br.com.calciolari.datahub.imports.infrastructure.persistence.ValidationResultRepository;
 import br.com.calciolari.datahub.imports.infrastructure.storage.RawFileDescriptor;
 import br.com.calciolari.datahub.imports.infrastructure.storage.RawFileStorage;
 import br.com.calciolari.datahub.imports.infrastructure.storage.RawStorageIntegrityException;
 import br.com.calciolari.datahub.imports.infrastructure.storage.StoredRawFile;
+import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleEntity;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleItemRepository;
 import br.com.calciolari.datahub.sales.infrastructure.persistence.SaleRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -808,6 +814,222 @@ class ImportIngestionServiceUnitTest {
 				() -> service.ingestIntoJob(jobId, new ByteArrayInputStream(new byte[] {1}), "x.qrp"));
 	}
 
+	@Test
+	void reprocessIntegrityOpenCloseFailureWrapsIo() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		doAnswer(inv -> new ByteArrayInputStream(new byte[] {1}) {
+			@Override public void close() throws IOException {
+				throw new IOException("close");
+			}
+		}).when(storage).openVerified(anyString(), anyString(), anyLong());
+
+		assertThrows(UncheckedIOException.class, () -> service.reprocess(fileId));
+		verify(attempts, never()).save(any());
+	}
+
+	@Test
+	void failAttemptMissingRowNullAndOversizedSummary() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.empty());
+		when(attempts.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		when(attempts.findById(any())).thenReturn(Optional.empty());
+		doAnswer(inv -> {
+			throw new IllegalStateException("gone");
+		}).when(parser).parse(any());
+		assertThrows(IllegalStateException.class, () -> service.reprocess(fileId));
+
+		ParseAttemptEntity target = attempt(artifactId, "PROCESSING", 1);
+		doReturn(Optional.of(target)).when(attempts).findById(any());
+		doAnswer(inv -> {
+			throw new IllegalStateException();
+		}).when(parser).parse(any());
+		assertThrows(IllegalStateException.class, () -> service.reprocess(fileId));
+		assertEquals("FAILED", target.getStatus());
+		assertNull(target.getErrorSummary());
+
+		doAnswer(inv -> {
+			throw new IllegalStateException("x".repeat(600));
+		}).when(parser).parse(any());
+		assertThrows(IllegalStateException.class, () -> service.reprocess(fileId));
+		assertEquals(500, target.getErrorSummary().length());
+	}
+
+	@Test
+	void claimReprocessIgnoresStaleAndTerminalAttempts() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		List<Integer> claimedCounts = stubLeaseAwareAttempts(artifactId);
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		stubPublishHappy();
+		doReturn(validParsed(List.of(outSale("C1")), List.of())).when(parser).parse(any());
+
+		// PENDING attempt that never took a lease must not block a new claim.
+		ParseAttemptEntity pending = attempt(artifactId, "PENDING", 3);
+		doReturn(Optional.of(pending)).when(attempts)
+				.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any());
+		assertTrue(service.reprocess(fileId).published());
+
+		ParseAttemptEntity expired = attempt(artifactId, "PROCESSING", 5);
+		expired.setLeaseUntil(Instant.now().minusSeconds(1));
+		doReturn(Optional.of(expired)).when(attempts)
+				.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any());
+		assertTrue(service.reprocess(fileId).published());
+
+		ParseAttemptEntity terminal = attempt(artifactId, "VALID", 7);
+		terminal.setLeaseUntil(Instant.now().plusSeconds(600));
+		doReturn(Optional.of(terminal)).when(attempts)
+				.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any());
+		assertTrue(service.reprocess(fileId).published());
+
+		assertEquals(List.of(4, 6, 8), claimedCounts);
+	}
+
+	@Test
+	void finalizeReprocessErrorWarningAndNoSaleIdBranches() {
+		UUID fileId = UUID.randomUUID();
+		UUID artifactId = UUID.randomUUID();
+		stubReprocessTarget(fileId, artifactId);
+		stubLeaseAwareAttempts(artifactId);
+		when(attempts.findFirstByRawArtifactIdAndParserNameAndParserVersionOrderByAttemptCountDesc(any(), any(), any()))
+				.thenReturn(Optional.empty());
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		stubPublishHappy();
+
+		doReturn(new ParsedImport(
+				"INTERPDV", InterPdvQrpParser.PARSER_NAME, InterPdvQrpParser.PARSER_VERSION,
+				"41", "NAME", List.of(), ParsedImportTotals.empty(), ParsedImportStats.empty(),
+				List.of(new ParseIssue("E", IssueSeverity.ERROR, IssueStage.VALIDATION, SourceLocator.empty(), "bad"))))
+				.when(parser).parse(any());
+		ImportIngestionService.ReprocessResult invalid = service.reprocess(fileId);
+		assertEquals("INVALID", invalid.parseStatus());
+		assertFalse(invalid.published());
+
+		doReturn(validParsed(List.of(outSale("W1")), List.of(
+				new ParseIssue("W", IssueSeverity.WARNING, IssueStage.VALIDATION, SourceLocator.empty(), "warn"))))
+				.when(parser).parse(any());
+		ImportIngestionService.ReprocessResult warned = service.reprocess(fileId);
+		assertEquals("WARNING", warned.parseStatus());
+		assertTrue(warned.published());
+
+		// No OUT movement carries an externalSaleId, so the overlap query is skipped.
+		doReturn(validParsed(List.of(inMovement(0), outWithoutSaleId(1)), List.of()))
+				.when(parser).parse(any());
+		ImportIngestionService.ReprocessResult noSales = service.reprocess(fileId);
+		assertEquals("VALID", noSales.parseStatus());
+		assertTrue(noSales.published());
+	}
+
+	@Test
+	void ingestPublishesWithoutOverlapQueryWhenNoSaleIds() {
+		UUID jobId = UUID.randomUUID();
+		when(jobs.findById(jobId)).thenReturn(Optional.of(new ImportJobEntity(jobId, "PROCESSING")));
+		stubNewArtifactIngest();
+		stubPublishHappy();
+		doReturn(validParsed(List.of(inMovement(0)), List.of())).when(parser).parse(any());
+
+		ImportedFileResult result = service.ingestIntoJob(jobId, new ByteArrayInputStream(new byte[] {7}), "i.qrp");
+		assertTrue(result.published());
+		assertEquals("VALID", result.parseStatus());
+		verify(publications, never()).existsOverlappingPublishedSales(any(), any());
+	}
+
+	@Test
+	void publishCanonicalSkipsIncompleteOutMovementsAndReusesExistingSale() {
+		UUID jobId = UUID.randomUUID();
+		when(jobs.findById(jobId)).thenReturn(Optional.of(new ImportJobEntity(jobId, "PROCESSING")));
+		stubNewArtifactIngest();
+		when(publications.existsOverlappingPublishedSales(any(), any())).thenReturn(false);
+		when(products.findByExternalSourceAndExternalId(any(), any()))
+				.thenReturn(Optional.of(new ProductEntity(UUID.randomUUID(), "INTERPDV", "41", "NAME", UUID.randomUUID())));
+		when(products.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(publications.findByRawArtifactId(any())).thenReturn(Optional.empty());
+		when(publications.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(sales.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		SaleEntity existingSale = new SaleEntity(UUID.randomUUID(), "INTERPDV", "S-D", null, UUID.randomUUID());
+		when(sales.findByExternalSourceAndExternalSaleId(any(), any())).thenReturn(Optional.of(existingSale));
+
+		doReturn(validParsed(List.of(
+				partialOut(0, "S-A", null, BigDecimal.ONE, BigDecimal.TEN),
+				partialOut(1, "S-B", BigDecimal.ONE, null, BigDecimal.TEN),
+				partialOut(2, "S-C", BigDecimal.ONE, BigDecimal.TEN, null),
+				outSale("S-D")), List.of()))
+				.when(parser).parse(any());
+
+		assertTrue(service.ingestIntoJob(jobId, new ByteArrayInputStream(new byte[] {8}), "q.qrp").published());
+		// Only the complete OUT movement becomes a sale item, and it reuses the existing sale.
+		verify(saleItems, times(1)).save(any());
+		verify(sales, never()).save(any());
+		verify(products, never()).save(any());
+	}
+
+	@Test
+	void toValidationEntityMapsInfoSeverityAndNullLocator() throws Exception {
+		var method = ImportIngestionService.class
+				.getDeclaredMethod("toValidationEntity", UUID.class, ParseIssue.class);
+		method.setAccessible(true);
+		UUID attemptId = UUID.randomUUID();
+
+		ValidationResultEntity info = (ValidationResultEntity) method.invoke(null, attemptId,
+				new ParseIssue("I1", IssueSeverity.INFO, IssueStage.VALIDATION, SourceLocator.empty(), "no key values"));
+		assertEquals("VALID", info.getStatus());
+		assertEquals(InterPdvQrpParser.PARSER_VERSION, info.getRuleVersion());
+		assertNull(info.getSourceValue());
+
+		// ParseIssue normalizes a null locator, so the defensive null branch needs a stub.
+		ParseIssue unlocated = mock(ParseIssue.class);
+		when(unlocated.code()).thenReturn("I2");
+		when(unlocated.severity()).thenReturn(IssueSeverity.INFO);
+		when(unlocated.message()).thenReturn("ruleVersion=rv2");
+		when(unlocated.sourceLocator()).thenReturn(null);
+		ValidationResultEntity mapped = (ValidationResultEntity) method.invoke(null, attemptId, unlocated);
+		assertNull(mapped.getSourceLocator());
+		assertEquals("rv2", mapped.getRuleVersion());
+	}
+
+	private void stubReprocessTarget(UUID fileId, UUID artifactId) {
+		ImportFileEntity file = new ImportFileEntity(
+				fileId, UUID.randomUUID(), artifactId, "f.qrp", "INTERPDV", "IMPORTED");
+		RawArtifactEntity artifact = new RawArtifactEntity(
+				artifactId, "b".repeat(64), 3, "00/00/" + "b".repeat(64), "QRP");
+		when(files.findById(fileId)).thenReturn(Optional.of(file));
+		when(files.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(rawArtifacts.findById(artifactId)).thenReturn(Optional.of(artifact));
+		when(rawArtifacts.findWithLockById(artifactId)).thenReturn(Optional.of(artifact));
+		when(publications.findByRawArtifactId(artifactId)).thenReturn(Optional.empty());
+		doAnswer(inv -> new ByteArrayInputStream(new byte[] {1, 2, 3}))
+				.when(storage).openVerified(anyString(), anyString(), anyLong());
+	}
+
+	/** Wires attempt persistence so finalizeReprocess sees the lease taken by claimReprocess. */
+	private List<Integer> stubLeaseAwareAttempts(UUID artifactId) {
+		List<Integer> claimedCounts = new java.util.ArrayList<>();
+		String[] lease = new String[1];
+		when(attempts.save(any())).thenAnswer(inv -> {
+			ParseAttemptEntity saved = inv.getArgument(0);
+			if (saved.getLeaseOwner() != null && saved.getLeaseOwner().startsWith("reprocess-")
+					&& "PROCESSING".equals(saved.getStatus())) {
+				lease[0] = saved.getLeaseOwner();
+				claimedCounts.add(saved.getAttemptCount());
+			}
+			return saved;
+		});
+		when(attempts.findById(any())).thenAnswer(inv -> {
+			ParseAttemptEntity current = new ParseAttemptEntity(
+					inv.getArgument(0), artifactId, InterPdvQrpParser.PARSER_NAME,
+					InterPdvQrpParser.PARSER_VERSION, "PROCESSING", 1);
+			current.setLeaseOwner(lease[0]);
+			return Optional.of(current);
+		});
+		return claimedCounts;
+	}
+
 	private void stubNewArtifactIngest() {
 		stubNewArtifactIngestWithoutOpen();
 		when(storage.openVerified(anyString(), anyString(), anyLong())).thenReturn(new ByteArrayInputStream(new byte[] {1}));
@@ -873,6 +1095,28 @@ class ImportIngestionServiceUnitTest {
 				"41", "NAME", moves,
 				new ParsedImportTotals(null, BigDecimal.ONE, null, BigDecimal.TEN, null, null),
 				ParsedImportStats.empty(), issues);
+	}
+
+	private static ParsedMovement inMovement(int index) {
+		return new ParsedMovement(
+				index, MovementDirection.IN, "41", "NAME", null, LocalDateTime.now(),
+				BigDecimal.ONE, BigDecimal.TEN, null, BigDecimal.TEN,
+				null, null, null, SourceLocator.empty());
+	}
+
+	private static ParsedMovement outWithoutSaleId(int index) {
+		return new ParsedMovement(
+				index, MovementDirection.OUT, "41", "NAME", null, LocalDateTime.now(),
+				BigDecimal.ONE, BigDecimal.TEN, null, BigDecimal.TEN,
+				null, null, null, SourceLocator.empty());
+	}
+
+	private static ParsedMovement partialOut(
+			int index, String saleId, BigDecimal quantity, BigDecimal unitPrice, BigDecimal total) {
+		return new ParsedMovement(
+				index, MovementDirection.OUT, "41", "NAME", saleId, LocalDateTime.now(),
+				quantity, unitPrice, null, total,
+				null, null, null, SourceLocator.empty());
 	}
 
 	private static ParsedMovement outSale(String saleId) {

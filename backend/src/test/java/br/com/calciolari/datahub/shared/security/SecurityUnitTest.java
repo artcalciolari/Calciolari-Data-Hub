@@ -57,6 +57,8 @@ class SecurityUnitTest {
 				() -> SecurityConfiguration.parseUser("::VIEWER", encoder));
 		assertThrows(IllegalArgumentException.class,
 				() -> SecurityConfiguration.parseUser(":secret:VIEWER", encoder));
+		assertThrows(IllegalArgumentException.class,
+				() -> SecurityConfiguration.parseUser("user::VIEWER", encoder));
 	}
 
 	@Test

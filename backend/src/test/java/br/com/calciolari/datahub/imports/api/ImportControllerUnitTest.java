@@ -125,7 +125,7 @@ class ImportControllerUnitTest {
 				"a".repeat(64), 1L, "VALID", 1, "p", "v",
 				null, List.of(), null, null);
 		when(query.getFile(jobId, fileId)).thenReturn(detail);
-		controller.getFile(jobId, fileId);
+		assertEquals(fileId, controller.getFile(jobId, fileId).id());
 
 		ReprocessResult rr = new ReprocessResult(
 				fileId, UUID.randomUUID(), null, UUID.randomUUID(), true, "VALID", "IMPORTED", 2);
