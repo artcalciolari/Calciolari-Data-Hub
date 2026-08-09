@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "packageStatus": "PRESENT",
+  "packageInstructions": "Fixtures A and B are present under fixtures/qrp/. Sensitivity review still pending.",
+  "parserFingerprint": "interpdv-qrp-v1",
+  "fixtures": [
+    {
+      "id": "fixture-a",
+      "logicalName": "NHOQUE BATATA",
+      "relativePath": "qrp/fixture-a.qrp",
+      "originalFilenameExample": "AUDITORIA.QRP",
+      "sha256": "cc98441ad0422fbe426165fd01e6ad9dff4d8eff183b1ebf426c80fb76dd365c",
+      "byteSize": 66048,
+      "sensitivity": "PENDING_REVIEW",
+      "knownOrigin": "InterPDV Relatório de Auditoria — product 35; filename AUDITORIA.QRP (no date hints)",
+      "status": "PRESENT",
+      "expected": {
+        "externalProductId": "35",
+        "productName": "NHOQUE BATATA",
+        "pages": 1,
+        "lines": 15,
+        "sourceQuantityTotal": "10.842",
+        "parsedQuantityTotal": "10.842",
+        "saleExternalId": "134808",
+        "occurredAt": "2026-08-07T12:22:13",
+        "quantity": "0.51",
+        "quantityPlanAlias": "0.510",
+        "unitPrice": "63.90",
+        "discountPercentage": "0",
+        "total": "32.59",
+        "filenameHintsEmpty": true
+      }
+    },
+    {
+      "id": "fixture-b",
+      "logicalName": "MOLHO POMODORO",
+      "relativePath": "qrp/fixture-b.qrp",
+      "originalFilenameExample": "AUDITORIA 41, 01_07-20_07.QRP",
+      "sha256": "4e1b7539aa9f33c131924a5eb6e6b9400e38041dff6a05c437e95a96bc8654fb",
+      "byteSize": 473100,
+      "sensitivity": "PENDING_REVIEW",
+      "knownOrigin": "InterPDV Relatório de Auditoria — product 41; filename period hint 01_07-20_07 (year absent)",
+      "status": "PRESENT",
+      "expected": {
+        "externalProductId": "41",
+        "productName": "MOLHO POMODORO",
+        "manufacturer": "CASA CALCIOLARI",
+        "pages": 4,
+        "lines": 134,
+        "uniqueSales": 93,
+        "quantityTotal": "52.986",
+        "revenueTotal": "3013.07",
+        "entries": 0,
+        "lastMovementAt": "2026-07-19T13:07:03",
+        "sourceQuantityTotal": "52.986",
+        "parsedQuantityTotal": "52.986",
+        "quantityDifference": "0",
+        "quantityValidationStatus": "VALID",
+        "sampleSale": {
+          "saleExternalId": "134409",
+          "quantity": "0.416",
+          "unitPrice": "56.90",
+          "discountPercentage": "8",
+          "total": "21.78"
+        },
+        "filenameHintMustNotOverrideLastMovement": true
+      }
+    }
+  ]
+}
