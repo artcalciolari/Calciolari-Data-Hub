@@ -66,6 +66,8 @@ class FilenameHintsParserTest {
 		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "01", "yy")).isEmpty());
 		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
 		assertTrue(parser.parse("x_01_00.QRP").isEmpty());
+		assertTrue(parser.parse("x_32_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_01_13.QRP").isEmpty());
 	}
 
 	@Test
@@ -91,8 +93,6 @@ class FilenameHintsParserTest {
 		assertTrue(parser.parse("x_10_13.QRP").isEmpty());
 		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
 		assertTrue(parser.parse("x_07_00.QRP").isEmpty());
-		assertTrue(parser.parse("bad_32/07-01/08.QRP").isEmpty());
-		assertTrue(parser.parse("bad_01/08-32/07.QRP").isEmpty());
 
 		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
 		toDate.setAccessible(true);
@@ -104,6 +104,9 @@ class FilenameHintsParserTest {
 		toRange.setAccessible(true);
 		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "xx", "01", "01", "01")).isEmpty());
 		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "yy", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "08", "32", "07")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "32", "07", "01", "08")).isEmpty());
+		assertTrue(parser.parse("bad_32/07-32/08.QRP").isEmpty());
 	}
 
 	@Test

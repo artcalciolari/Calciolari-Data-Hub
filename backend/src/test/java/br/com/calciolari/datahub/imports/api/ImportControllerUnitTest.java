@@ -119,7 +119,12 @@ class ImportControllerUnitTest {
 		when(query.getJob(jobId)).thenReturn(job);
 		assertEquals(jobId, controller.get(jobId).id());
 
-		when(query.getFile(jobId, fileId)).thenReturn(mock(ImportDtos.ImportFileDetail.class));
+		ImportDtos.ImportFileDetail detail = new ImportDtos.ImportFileDetail(
+				fileId, jobId, UUID.randomUUID(), UUID.randomUUID(),
+				"a.qrp", "INTERPDV", "IMPORTED", false, null,
+				"a".repeat(64), 1L, "VALID", 1, "p", "v",
+				null, List.of(), null, null);
+		when(query.getFile(jobId, fileId)).thenReturn(detail);
 		controller.getFile(jobId, fileId);
 
 		ReprocessResult rr = new ReprocessResult(
@@ -143,12 +148,13 @@ class ImportControllerUnitTest {
 	}
 
 	@Test
-	void validateFileNullOriginalFilenameBranch() {
-		MultipartFile file = mock(MultipartFile.class);
-		when(file.isEmpty()).thenReturn(false);
-		when(file.getSize()).thenReturn(1L);
-		when(file.getOriginalFilename()).thenReturn(null);
-		assertEquals(HttpStatus.BAD_REQUEST, status(() -> controller.upload(List.of(file))));
+	void validateFileRejectsNullOriginalFilename() {
+		// MockMultipartFile normalizes a null filename to "", so a mock is required here.
+		MultipartFile unnamed = mock(MultipartFile.class);
+		when(unnamed.isEmpty()).thenReturn(false);
+		when(unnamed.getSize()).thenReturn(1L);
+		when(unnamed.getOriginalFilename()).thenReturn(null);
+		assertEquals(HttpStatus.BAD_REQUEST, status(() -> controller.upload(List.of(unnamed))));
 	}
 
 	@Test

@@ -152,5 +152,9 @@ class SecurityUnitTest {
 				() -> SecurityConfiguration.parseUser("user: :VIEWER", encoder));
 		assertThrows(IllegalArgumentException.class,
 				() -> SecurityConfiguration.parseUser(" :pw:VIEWER", encoder));
+		assertThrows(IllegalArgumentException.class,
+				() -> SecurityConfiguration.parseUser("user:pw:", encoder));
+		assertThrows(IllegalArgumentException.class,
+				() -> SecurityConfiguration.parseUser("user:pw:|||", encoder));
 	}
 }
