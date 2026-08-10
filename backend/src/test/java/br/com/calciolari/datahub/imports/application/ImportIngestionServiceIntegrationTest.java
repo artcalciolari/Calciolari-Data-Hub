@@ -55,12 +55,8 @@ class ImportIngestionServiceIntegrationTest {
 
 	@BeforeEach
 	void cleanDatabase() {
-		jdbcTemplate.execute("""
-				TRUNCATE TABLE
-				  sale_item, sale, product, validation_result, parsed_movement,
-				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
-				RESTART IDENTITY CASCADE
-				""");
+		PostgresTestSupport.cleanDatabase(jdbcTemplate);
+		PostgresTestSupport.cleanRawStorage();
 	}
 
 	@Test

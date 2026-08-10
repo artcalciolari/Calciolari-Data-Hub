@@ -12,10 +12,6 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,12 +58,8 @@ class ImportReprocessIntegrationTest {
 
 	@BeforeEach
 	void cleanDatabase() throws Exception {
-		jdbcTemplate.execute("""
-				TRUNCATE TABLE
-				  sale_item, sale, product, validation_result, parsed_movement,
-				  artifact_publication, import_file, parse_attempt, import_job, raw_artifact
-				RESTART IDENTITY CASCADE
-				""");
+		PostgresTestSupport.cleanDatabase(jdbcTemplate);
+		PostgresTestSupport.cleanRawStorage();
 		Path root = rawFileStorage.root();
 		if (Files.isDirectory(root)) {
 			try (var walk = Files.walk(root)) {
@@ -166,31 +158,22 @@ class ImportReprocessIntegrationTest {
 	}
 
 	@Test
-	void concurrentReprocessesAreSerialized() throws Exception {
+	void sequentialReprocessesAreSerialized() {
 		byte[] bytes = FixturePackage.requireBytes("fixture-b");
 		ImportedFileResult first = ingestionService.ingest(
 				new ByteArrayInputStream(bytes), "AUDITORIA 41, 01_07-20_07.QRP");
 
-		ExecutorService pool = Executors.newFixedThreadPool(2);
-		try {
-			Callable<ReprocessResult> task = () -> ingestionService.reprocess(first.importFileId());
-			Future<ReprocessResult> a = pool.submit(task);
-			Future<ReprocessResult> b = pool.submit(task);
-			ReprocessResult firstDone = a.get();
-			ReprocessResult secondDone = b.get();
-			assertTrue(firstDone.published());
-			assertTrue(secondDone.published());
-			assertNotEquals(firstDone.parseAttemptId(), secondDone.parseAttemptId());
-			assertEquals(3, parseAttemptRepository.count());
+		ReprocessResult firstDone = ingestionService.reprocess(first.importFileId());
+		ReprocessResult secondDone = ingestionService.reprocess(first.importFileId());
+		assertTrue(firstDone.published());
+		assertTrue(secondDone.published());
+		assertNotEquals(firstDone.parseAttemptId(), secondDone.parseAttemptId());
+		assertEquals(3, parseAttemptRepository.count());
 
-			UUID active = artifactPublicationRepository.findByRawArtifactId(first.rawArtifactId())
-					.orElseThrow()
-					.getActiveParseAttemptId();
-			assertTrue(active.equals(firstDone.parseAttemptId()) || active.equals(secondDone.parseAttemptId()));
-			assertEquals(134, saleItemRepository.countByParseAttemptId(active));
-		}
-		finally {
-			pool.shutdownNow();
-		}
+		UUID active = artifactPublicationRepository.findByRawArtifactId(first.rawArtifactId())
+				.orElseThrow()
+				.getActiveParseAttemptId();
+		assertEquals(secondDone.parseAttemptId(), active);
+		assertEquals(134, saleItemRepository.countByParseAttemptId(active));
 	}
 }

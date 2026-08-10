@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -25,6 +26,14 @@ public class ApiExceptionHandler {
 		ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, sanitize(ex.getMessage()));
 		detail.setTitle("Bad Request");
 		detail.setType(URI.create("about:blank"));
+		return detail;
+	}
+
+	@ExceptionHandler(MissingServletRequestPartException.class)
+	ProblemDetail handleMissingPart(MissingServletRequestPartException ex) {
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(
+				HttpStatus.BAD_REQUEST, "Missing required part: " + ex.getRequestPartName());
+		detail.setTitle("Bad Request");
 		return detail;
 	}
 

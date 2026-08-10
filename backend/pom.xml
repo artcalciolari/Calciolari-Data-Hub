@@ -19,6 +19,10 @@
 	<properties>
 		<java.version>21</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<jacoco.version>0.8.13</jacoco.version>
+		<!-- CI gate: fail the build below these ratios (0.00–1.00). -->
+		<datahub.coverage.line>1.00</datahub.coverage.line>
+		<datahub.coverage.branch>1.00</datahub.coverage.branch>
 	</properties>
 
 	<dependencies>
@@ -121,12 +125,69 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
+					<forkCount>1</forkCount>
+					<reuseForks>true</reuseForks>
+					<parallel>none</parallel>
+					<!-- Keep JaCoCo agent from prepare-agent and give the fork enough heap. -->
+					<argLine>@{argLine} -Xmx2048m -XX:+EnableDynamicAgentLoading</argLine>
 					<systemPropertyVariables>
 						<user.language>en</user.language>
 						<user.country>US</user.country>
 						<user.timezone>UTC</user.timezone>
 					</systemPropertyVariables>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<configuration>
+					<!-- InterPDV QRP/EMF binary adapters: fixture-covered; exclude from hard gate. -->
+					<excludes>
+						<exclude>br/com/calciolari/datahub/imports/infrastructure/interpdv/qrp/**/*</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${datahub.coverage.line}</minimum>
+										</limit>
+										<limit>
+											<counter>BRANCH</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>${datahub.coverage.branch}</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

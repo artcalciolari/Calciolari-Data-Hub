@@ -1,6 +1,7 @@
 package br.com.calciolari.datahub.imports.domain.hints;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,12 @@ class FilenameHintsParserTest {
 	}
 
 	@Test
+	void isEmptyFalseWhenPeriodOrSinglePresent() {
+		assertTrue(!parser.parse("AUDITORIA 01_07-20_07.QRP").isEmpty());
+		assertTrue(!parser.parse("relatorio_20_07.QRP").isEmpty());
+	}
+
+	@Test
 	void neverThrowsOnNullOrGarbage() {
 		assertEquals("", parser.parse(null).originalFilename());
 		assertTrue(parser.parse("???@@@").isEmpty());
@@ -44,5 +51,81 @@ class FilenameHintsParserTest {
 		assertEquals(20, hints.singleDateHint().orElseThrow().day());
 		assertEquals(7, hints.singleDateHint().orElseThrow().month());
 		assertTrue(hints.singleDateHint().orElseThrow().year().isEmpty());
+	}
+
+	@Test
+	void parsesSlashPeriodRange() {
+		FilenameHints hints = parser.parse("AUDITORIA 01/07-20/07.QRP");
+		assertTrue(hints.periodHint().isPresent());
+	}
+
+	@Test
+	void stripsWindowsDirectoryPrefix() {
+		FilenameHints hints = parser.parse("folder\\relatorio_20_07.QRP");
+		assertTrue(hints.singleDateHint().isPresent());
+	}
+
+	@Test
+	void invalidDayOrMonthViaReflection() throws Exception {
+		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
+		toDate.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "xx", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "01", "yy")).isEmpty());
+		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_01_00.QRP").isEmpty());
+		assertTrue(parser.parse("x_32_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_01_13.QRP").isEmpty());
+	}
+
+	@Test
+	void toRangeEmptyWhenEitherEndInvalid() throws Exception {
+		var toRange = FilenameHintsParser.class.getDeclaredMethod(
+				"toRange", String.class, String.class, String.class, String.class);
+		toRange.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "32", "01", "01", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "32", "01")).isEmpty());
+	}
+
+	@Test
+	void isEmptyIsFalseWhenAnyHintIsPresent() {
+		assertFalse(parser.parse("AUDITORIA 01_07-20_07.QRP").isEmpty());
+		assertFalse(parser.parse("relatorio_20_07.QRP").isEmpty());
+	}
+
+	@Test
+	void matchSingleFallsBackToSlashPattern() {
+		FilenameHints hints = parser.parse("nota_15/08.QRP");
+		assertTrue(hints.singleDateHint().isPresent());
+		assertEquals(15, hints.singleDateHint().orElseThrow().day());
+		assertEquals(8, hints.singleDateHint().orElseThrow().month());
+	}
+
+	@Test
+	void rejectsOutOfRangeDayAndMonth() throws Exception {
+		assertTrue(parser.parse("x_32_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_10_13.QRP").isEmpty());
+		assertTrue(parser.parse("x_00_07.QRP").isEmpty());
+		assertTrue(parser.parse("x_07_00.QRP").isEmpty());
+
+		var toDate = FilenameHintsParser.class.getDeclaredMethod("toDate", String.class, String.class);
+		toDate.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "15", "13")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toDate.invoke(null, "0", "7")).isEmpty());
+
+		var toRange = FilenameHintsParser.class.getDeclaredMethod(
+				"toRange", String.class, String.class, String.class, String.class);
+		toRange.setAccessible(true);
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "xx", "01", "01", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "01", "yy", "01")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "01", "08", "32", "07")).isEmpty());
+		assertTrue(((java.util.Optional<?>) toRange.invoke(null, "32", "07", "01", "08")).isEmpty());
+		assertTrue(parser.parse("bad_32/07-32/08.QRP").isEmpty());
+	}
+
+	@Test
+	void stripExtensionEdgeCases() {
+		assertTrue(parser.parse(".hidden").isEmpty());
+		assertTrue(parser.parse("noext").isEmpty());
+		assertTrue(parser.parse("15/08").singleDateHint().isPresent());
 	}
 }

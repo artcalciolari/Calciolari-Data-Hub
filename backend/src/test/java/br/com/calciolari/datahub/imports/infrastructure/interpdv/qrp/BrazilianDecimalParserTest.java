@@ -27,4 +27,12 @@ class BrazilianDecimalParserTest {
 		assertNull(BrazilianDecimalParser.parse(""));
 		assertNull(BrazilianDecimalParser.parse("   "));
 	}
+
+	@Test
+	void parsesDotOnlyDecimalsAndRejectsGarbage() {
+		assertEquals(new BigDecimal("12.34"), BrazilianDecimalParser.parse("12.34"));
+		assertEquals(new BigDecimal("5"), BrazilianDecimalParser.parse("5"));
+		assertNull(BrazilianDecimalParser.parse("-"));
+		assertNull(BrazilianDecimalParser.parse("not-a-number"));
+	}
 }

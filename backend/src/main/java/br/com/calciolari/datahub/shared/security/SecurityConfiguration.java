@@ -105,7 +105,10 @@ public class SecurityConfiguration {
 		}
 		String username = parts[0].trim();
 		String password = parts[1].trim();
-		String[] roles = parts[2].split("\\|");
+		String[] roles = java.util.Arrays.stream(parts[2].split("\\|"))
+				.map(String::trim)
+				.filter(r -> !r.isEmpty())
+				.toArray(String[]::new);
 		if (username.isEmpty() || password.isEmpty() || roles.length == 0) {
 			throw new IllegalArgumentException("Incomplete datahub.security.users entry: " + entry);
 		}
