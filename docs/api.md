@@ -24,7 +24,7 @@ Base path: `/api`. Money/quantities are decimal **strings**. `LocalDateTime` is 
 
 Queries only include rows from `artifact_publication.active_parse_attempt_id`.
 
-## Auth (when `datahub.security.enabled=true`)
+## Auth (when `DATAHUB_SECURITY_ENABLED=true`)
 
 HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST upload), `ADMIN` (reprocess + actuator metrics + all).
 
@@ -32,10 +32,10 @@ Unauthenticated API calls → `401`. Insufficient role → `403`.
 
 ## Errors
 
-`application/problem+json` via Spring `ProblemDetail`. Stack traces never included.
+`application/problem+json`. Stack traces never included.
 
 ## Ops
 
-Actuator: `/actuator/health`, `/actuator/info` (public); `/actuator/metrics` (ADMIN when security on).
+Actuator-compatible: `/actuator/health`, `/actuator/info` (public); `/actuator/metrics` (ADMIN when security on).
 
 See `docs/ops.md` for CORS, limits, backup/restore and PWA cache rules.

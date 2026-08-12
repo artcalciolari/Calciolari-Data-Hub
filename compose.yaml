@@ -1,5 +1,4 @@
-# Local infrastructure for Fase 3A+. Safe to bring up earlier; unused by the
-# current parser-scaffold unit tests.
+# Local PostgreSQL for the C# backend and integration tests.
 services:
   postgres:
     image: postgres:18.4-alpine

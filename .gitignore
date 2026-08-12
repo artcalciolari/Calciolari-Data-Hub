@@ -1,5 +1,12 @@
-# Build
+# Maven leftover / .NET
 **/target/
+**/bin/
+**/obj/
+**/coverage/
+*.user
+*.suo
+.vs/
+
 **/build/
 **/dist/
 **/node_modules/

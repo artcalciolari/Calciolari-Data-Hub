@@ -6,31 +6,32 @@ Ver `.env.example`. Principais:
 
 | Variável | Default | Uso |
 |---|---|---|
-| `SPRING_DATASOURCE_*` | local Postgres | JDBC |
+| `DATAHUB_CONNECTION_STRING` | local Postgres | Npgsql (`Host=…;Database=…;Username=…;Password=…`) |
+| `SPRING_DATASOURCE_*` | local Postgres | fallback JDBC (scripts de backup / restore) |
 | `DATAHUB_RAW_STORAGE_ROOT` | `./data/raw-storage` | bytes imutáveis `.QRP` |
 | `DATAHUB_IMPORTS_MAX_FILES` | `20` | arquivos por upload |
 | `DATAHUB_IMPORTS_MAX_FILE_BYTES` | `33554432` (32MB) | tamanho por arquivo |
 | `DATAHUB_SECURITY_ENABLED` | `false` | autenticação HTTP Basic |
 | `DATAHUB_SECURITY_USERS` | vazio | `user:pass:ROLE1\|ROLE2,…` |
 | `DATAHUB_CORS_ALLOWED_ORIGINS` | vazio | origens CORS (CSV) |
-| `SPRING_PROFILES_ACTIVE` | — | `local` ou `production` |
+| `ASPNETCORE_ENVIRONMENT` | `Development` | `Production` força auth |
 
 ## Segurança
 
-- **Local / rede controlada:** `datahub.security.enabled=false` (default). A API fica aberta; mantenha atrás de VPN/firewall. Não publique na internet.
-- **Produção:** perfil `production` força `datahub.security.enabled=true` e falha o startup se não houver usuários. Roles:
+- **Local / rede controlada:** `DATAHUB_SECURITY_ENABLED=false` (default). A API fica aberta; mantenha atrás de VPN/firewall. Não publique na internet.
+- **Produção:** `ASPNETCORE_ENVIRONMENT=Production` força autenticação e falha o startup se não houver usuários. Roles:
   - `VIEWER` — `GET /api/**`
   - `IMPORTER` — VIEWER + `POST /api/imports/qrp` (upload)
   - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess` + `/actuator/metrics`
 - `/actuator/health` e `/actuator/info` permanecem públicos.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - CORS vazio = same-origin only. Prefira reverse-proxy same-origin em produção.
-- Stack traces nunca são incluídos (`server.error.include-stacktrace=never`).
+- Stack traces nunca são incluídos no Problem Details.
 
 Exemplo (produção):
 
 ```bash
-export SPRING_PROFILES_ACTIVE=production
+export ASPNETCORE_ENVIRONMENT=Production
 export DATAHUB_SECURITY_USERS='viewer:segredo:VIEWER,importer:segredo:IMPORTER|VIEWER,admin:segredo:ADMIN|IMPORTER|VIEWER'
 ```
 
@@ -59,7 +60,7 @@ Trate **PostgreSQL + diretório raw** como uma unidade. Restaurar só o banco se
 #   datahub-YYYYMMDD-HHMMSS/MANIFEST.txt
 ```
 
-Requer `pg_dump`, `tar`, e variáveis `SPRING_DATASOURCE_*` / `DATAHUB_RAW_STORAGE_ROOT` (ou defaults locais).
+Requer `pg_dump`, `tar`, e variáveis `DATAHUB_CONNECTION_STRING` ou `SPRING_DATASOURCE_*` / `DATAHUB_RAW_STORAGE_ROOT` (ou defaults locais).
 
 ### Restore
 

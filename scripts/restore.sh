@@ -13,15 +13,27 @@ if [[ ! -f "${SRC}/pg.dump" || ! -f "${SRC}/raw-storage.tgz" ]]; then
   exit 1
 fi
 
-DB_URL="${SPRING_DATASOURCE_URL:-jdbc:postgresql://localhost:5432/datahub}"
-DB_USER="${SPRING_DATASOURCE_USERNAME:-datahub}"
-DB_PASS="${SPRING_DATASOURCE_PASSWORD:-change-me}"
 RAW_ROOT="${DATAHUB_RAW_STORAGE_ROOT:-./data/raw-storage}"
 
-HOST="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://([^:/]+).*#\1#')"
-PORT="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^:/]+:([0-9]+)/.*#\1#')"
-DB="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^/]+/([^?]+).*#\1#')"
-if [[ "$PORT" == "$DB_URL" ]]; then PORT=5432; fi
+if [[ -n "${DATAHUB_CONNECTION_STRING:-}" ]]; then
+  CS="$DATAHUB_CONNECTION_STRING"
+  HOST="$(echo "$CS" | sed -n 's/.*Host=\([^;]*\).*/\1/p')"
+  PORT="$(echo "$CS" | sed -n 's/.*Port=\([^;]*\).*/\1/p')"
+  DB="$(echo "$CS" | sed -n 's/.*Database=\([^;]*\).*/\1/p')"
+  DB_USER="$(echo "$CS" | sed -n 's/.*Username=\([^;]*\).*/\1/p')"
+  DB_PASS="$(echo "$CS" | sed -n 's/.*Password=\([^;]*\).*/\1/p')"
+  PORT="${PORT:-5432}"
+  DB_USER="${DB_USER:-datahub}"
+  DB_PASS="${DB_PASS:-change-me}"
+else
+  DB_URL="${SPRING_DATASOURCE_URL:-jdbc:postgresql://localhost:5432/datahub}"
+  DB_USER="${SPRING_DATASOURCE_USERNAME:-datahub}"
+  DB_PASS="${SPRING_DATASOURCE_PASSWORD:-change-me}"
+  HOST="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://([^:/]+).*#\1#')"
+  PORT="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^:/]+:([0-9]+)/.*#\1#')"
+  DB="$(echo "$DB_URL" | sed -E 's#jdbc:postgresql://[^/]+/([^?]+).*#\1#')"
+  if [[ "$PORT" == "$DB_URL" ]]; then PORT=5432; fi
+fi
 
 echo "WARNING: this replaces database '${DB}' and raw root '${RAW_ROOT}'."
 export PGPASSWORD="$DB_PASS"

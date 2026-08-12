@@ -6,7 +6,7 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 ## Estado atual
 
 - Parser InterPDV QRP (PoC port) + Fixtures A/B
-- Persistência PostgreSQL/Flyway, raw storage, dedup
+- Persistência PostgreSQL (EF Core + SQL `V1`), raw storage, dedup
 - API REST: imports, products, sales, dashboard
 - Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
 - PWA instalável (app shell only) + segurança operacional / backup
@@ -19,10 +19,11 @@ Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/ops.md`, `docs/residuals.md`,
 ```bash
 # DB: postgres em localhost:5432 / datahub / change-me
 cd backend
-./mvnw test
-SPRING_DATASOURCE_PASSWORD=change-me ./mvnw spring-boot:run
+dotnet test
+dotnet run --project src/Calciolari.DataHub
 # Produção (auth obrigatória):
-# SPRING_PROFILES_ACTIVE=production DATAHUB_SECURITY_USERS='admin:…:ADMIN|…' ./mvnw spring-boot:run
+# ASPNETCORE_ENVIRONMENT=Production DATAHUB_SECURITY_USERS='admin:…:ADMIN|…' \
+#   dotnet run --project src/Calciolari.DataHub
 ```
 
 ## Frontend
@@ -68,4 +69,4 @@ Riscos residuais e fora de escopo: `docs/residuals.md` e plano §18.
 
 ## Coverage / CI
 
-Gates de 100% (JaCoCo + Vitest): `docs/coverage.md` e `.github/workflows/ci.yml`.
+Gates de 100% (Coverlet + Vitest): `docs/coverage.md` e `.github/workflows/ci.yml`.
