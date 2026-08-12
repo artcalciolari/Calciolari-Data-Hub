@@ -117,9 +117,9 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         Assert.Equal("SUCCEEDED", accepted!.Status);
         Assert.False(accepted.Files[0].Deduplicated);
 
-        var job = await _client.GetFromJsonAsync<JsonJob>("/api/imports/" + accepted.JobId);
+        var job = await _client.GetFromJsonAsync<JsonJob>("/api/imports/" + accepted.Id);
         Assert.Equal("SUCCEEDED", job!.Status);
-        var file = await _client.GetFromJsonAsync<JsonFile>($"/api/imports/{accepted.JobId}/files/{accepted.Files[0].Id}");
+        var file = await _client.GetFromJsonAsync<JsonFile>($"/api/imports/{accepted.Id}/files/{accepted.Files[0].Id}");
         Assert.Equal("IMPORTED", file!.Status);
         Assert.NotNull(file.Validations);
         Assert.NotEmpty(file.Validations);

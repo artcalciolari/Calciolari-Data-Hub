@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from '@/app/AppLayout'
+import { LoginPage } from '@/app/LoginPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ImportsPage } from '@/features/imports/ImportsPage'
 import { ImportJobPage } from '@/features/imports/ImportJobPage'
@@ -27,4 +28,5 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFoundPage /> },
     ],
   },
+  { path: '/login', element: <LoginPage /> },
 ])

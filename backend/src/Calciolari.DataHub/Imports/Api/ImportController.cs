@@ -26,7 +26,7 @@ public sealed class ImportController : ControllerBase
     [HttpPost("qrp")]
     [Authorize(Roles = "IMPORTER,ADMIN")]
     [RequestSizeLimit(64L * 1024 * 1024)]
-    public ActionResult<ImportAcceptedResponse> Upload([FromForm] List<IFormFile>? files)
+    public ActionResult<ImportJobResponse> Upload([FromForm] List<IFormFile>? files)
     {
         if (files is null || files.Count == 0)
         {
@@ -52,9 +52,8 @@ public sealed class ImportController : ControllerBase
 
         _ingestionService.CompleteJob(jobId);
         var job = _queryService.GetJob(jobId);
-        var body = new ImportAcceptedResponse(jobId, job.Status, job.Files);
         Response.Headers.Location = "/api/imports/" + jobId;
-        return StatusCode(StatusCodes.Status202Accepted, body);
+        return StatusCode(StatusCodes.Status202Accepted, job);
     }
 
     [HttpGet]

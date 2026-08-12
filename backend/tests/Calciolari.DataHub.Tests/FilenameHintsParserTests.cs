@@ -11,6 +11,7 @@ public sealed class FilenameHintsParserTests
     {
         var hints = _parser.Parse("AUDITORIA 41, 01_07-20_07.QRP");
         Assert.Equal("AUDITORIA 41, 01_07-20_07.QRP", hints.OriginalFilename);
+        Assert.Equal("41", hints.ProductCodeHint);
         Assert.NotNull(hints.PeriodHint);
         Assert.Equal(1, hints.PeriodHint!.Start.Day);
         Assert.Equal(7, hints.PeriodHint.Start.Month);
@@ -48,6 +49,8 @@ public sealed class FilenameHintsParserTests
     public void StripsWindowsDirectoryPrefix()
     {
         Assert.NotNull(_parser.Parse("folder\\relatorio_20_07.QRP").SingleDateHint);
+        Assert.NotNull(_parser.Parse("folder/relatorio_20_07.QRP").SingleDateHint);
+        Assert.Null(_parser.Parse("AUDITORIA.QRP").ProductCodeHint);
     }
 
     [Fact]

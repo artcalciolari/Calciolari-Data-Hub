@@ -157,4 +157,14 @@ describe('api', () => {
     vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }))
     await expect(listImports()).resolves.toBeUndefined()
   })
+
+  it('sends stored basic auth and clears it on 401', async () => {
+    sessionStorage.setItem('datahub.basic', btoa('admin:secret'))
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ detail: 'nope' }, 401))
+    await expect(getSale('x')).rejects.toMatchObject({ status: 401 })
+    expect(sessionStorage.getItem('datahub.basic')).toBeNull()
+    const [, init] = vi.mocked(fetch).mock.calls[0]!
+    const headers = new Headers(init?.headers)
+    expect(headers.get('Authorization')).toBe(`Basic ${btoa('admin:secret')}`)
+  })
 })

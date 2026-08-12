@@ -71,7 +71,9 @@ public sealed class SaleQueryService
             DecimalText.ToPlainString(item.Quantity),
             DecimalText.ToPlainString(item.UnitPrice),
             DecimalText.ToPlainString(item.DiscountPercentage),
-            DecimalText.ToPlainString(item.Total));
+            DecimalText.ToPlainString(item.Total),
+            DecimalText.ToPlainString(item.PreviousStock),
+            DecimalText.ToPlainString(item.ResultingStock));
     }
 
     private decimal SumPublishedTotalForSale(Guid saleId) =>
@@ -120,4 +122,6 @@ public sealed record SaleItemDto(
     string Quantity,
     string UnitPrice,
     string? DiscountPercentage,
-    string Total);
+    string Total,
+    string? PreviousStock,
+    string? ResultingStock);

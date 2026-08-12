@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
@@ -66,8 +67,8 @@ public sealed class BasicAuthenticationHandler : AuthenticationHandler<Authentic
         var username = decoded[..split];
         var password = decoded[(split + 1)..];
         var user = ParseUsers(_options).FirstOrDefault(u =>
-            string.Equals(u.Username, username, StringComparison.Ordinal) && u.Password == password);
-        if (user is null)
+            string.Equals(u.Username, username, StringComparison.Ordinal));
+        if (user is null || !FixedTimeEquals(user.Password, password))
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid username or password"));
         }
@@ -120,6 +121,19 @@ public sealed class BasicAuthenticationHandler : AuthenticationHandler<Authentic
         }
 
         return new BasicUser(username, password, roles);
+    }
+
+    internal static bool FixedTimeEquals(string left, string right)
+    {
+        var leftBytes = Encoding.UTF8.GetBytes(left);
+        var rightBytes = Encoding.UTF8.GetBytes(right);
+        if (leftBytes.Length != rightBytes.Length)
+        {
+            CryptographicOperations.FixedTimeEquals(leftBytes, leftBytes);
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
     }
 
     internal sealed record BasicUser(string Username, string Password, IReadOnlyList<string> Roles);

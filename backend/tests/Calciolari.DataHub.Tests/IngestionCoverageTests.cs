@@ -130,8 +130,23 @@ public sealed class IngestionCoverageTests : IDisposable
         _parser.Default = _ => ValidImport(null, null, [Out("Z", 1m, 1m, 1m)]);
         var noProduct = _svc.Ingest(new MemoryStream([5]), "e.qrp");
         Assert.Equal("VALID", noProduct.ParseStatus);
+        Assert.False(noProduct.Published);
         var dupNoProduct = _svc.Ingest(new MemoryStream([5]), "e2.qrp");
         Assert.Equal("IMPORTED", dupNoProduct.FileStatus);
+
+        _parser.Default = _ => new ParsedImport(
+            "INTERPDV",
+            InterPdvQrpParser.ParserName,
+            InterPdvQrpParser.ParserVersion,
+            null,
+            null,
+            [Out("Z2", 1m, 1m, 1m)],
+            new ParsedImportTotals(null, 1m, null, 1m, null, null),
+            ParsedImportStats.Empty,
+            [ParseIssue.Create("W", IssueSeverity.Warning, IssueStage.Validation, null, "warn")]);
+        var noProductWarn = _svc.Ingest(new MemoryStream([55]), "e-warn.qrp");
+        Assert.Equal("WARNING", noProductWarn.ParseStatus);
+        Assert.False(noProductWarn.Published);
 
         var processingBytes = new byte[] { 6 };
         _parser.Default = _ => ValidImport("7", "P", [Out("P1", 1m, 1m, 1m)]);
@@ -326,6 +341,7 @@ public sealed class IngestionCoverageTests : IDisposable
         var failed = _svc.Reprocess(ingested.ImportFileId);
         Assert.Equal("FAILED", failed.ParseStatus);
         Assert.False(failed.Published);
+        Assert.Equal("FAILED", failed.FileStatus);
 
         _parser.Default = _ => IssueImport(IssueSeverity.Error);
         var invalid = _svc.Reprocess(ingested.ImportFileId);
@@ -430,7 +446,37 @@ public sealed class IngestionCoverageTests : IDisposable
     {
         _parser.Default = _ => ValidImport("41", "N", [Out("Q1", 1m, 1m, 1m)]);
         var ingested = _svc.Ingest(new MemoryStream([21]), "q.qrp");
+        _db.ValidationResults.Add(new ValidationResultEntity(
+            Guid.NewGuid(),
+            ingested.ParseAttemptId,
+            "SOURCE_QUANTITY_MISMATCH",
+            "INVALID",
+            2m,
+            1m,
+            1m,
+            0.001m,
+            "v1",
+            null));
+        _db.ValidationResults.Add(new ValidationResultEntity(
+            Guid.NewGuid(),
+            ingested.ParseAttemptId,
+            "SOURCE_QUANTITY_MATCH",
+            "VALID",
+            52.986m,
+            52.986m,
+            0m,
+            0.001m,
+            "v1",
+            null));
+        _db.SaveChanges();
         var queries = new ImportQueryService(_db);
+        var summary = queries.GetJob(ingested.JobId);
+        Assert.Equal("N", summary.Files[0].ProductName);
+        Assert.Equal("41", summary.Files[0].ProductExternalId);
+        Assert.NotNull(summary.Files[0].ParsedRevenue);
+        Assert.Equal("VALID", summary.Files[0].QuantityValidationStatus);
+        Assert.Equal("52.986", summary.Files[0].SourceQuantity);
+        Assert.Equal("52.986", summary.Files[0].ParsedQuantity);
         Assert.Throws<ApiException>(() => queries.GetFile(ingested.JobId, Guid.NewGuid()));
         Assert.Throws<ApiException>(() => queries.GetFile(Guid.NewGuid(), ingested.ImportFileId));
 
@@ -440,6 +486,9 @@ public sealed class IngestionCoverageTests : IDisposable
         var detail = queries.GetFile(ingested.JobId, ingested.ImportFileId);
         Assert.Null(detail.ParseStatus);
         Assert.Empty(detail.Validations);
+        var listed = queries.ListJobs(0, 20);
+        Assert.Contains(listed.Content, j => j.Id == ingested.JobId);
+        Assert.Contains(listed.Content.SelectMany(j => j.Files), f => f.Id == ingested.ImportFileId && f.ParseAttemptId is null);
     }
 
     [Fact]

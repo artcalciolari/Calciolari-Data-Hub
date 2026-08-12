@@ -6,7 +6,7 @@ Base path: `/api`. Money/quantities are decimal **strings**. `LocalDateTime` is 
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST` | `/api/imports/qrp` | `multipart/form-data` field `files` (`.qrp`, max 20, 32MB each). `202` + `Location`. Requires `IMPORTER`/`ADMIN` when security enabled |
+| `POST` | `/api/imports/qrp` | `multipart/form-data` field `files` (`.qrp`, max 20, 32MB each). Processing is synchronous; response is `202` + `Location` with the completed **job** (`id`, `status`, `files`, timestamps). File summaries include product/quantity/revenue when the parse produced them. Requires `IMPORTER`/`ADMIN` when security enabled |
 | `GET` | `/api/imports` | paginated jobs |
 | `GET` | `/api/imports/{jobId}` | job + file summaries |
 | `GET` | `/api/imports/{jobId}/files/{fileId}` | admin detail (hash, hints, validations) |
@@ -19,7 +19,7 @@ Base path: `/api`. Money/quantities are decimal **strings**. `LocalDateTime` is 
 | `GET` | `/api/products?q=&page=&size=` |
 | `GET` | `/api/products/{id}` |
 | `GET` | `/api/sales?from=&to=&productId=&page=&size=` |
-| `GET` | `/api/sales/{id}` |
+| `GET` | `/api/sales/{id}` | Line items include `previousStock` / `resultingStock` when present in the source |
 | `GET` | `/api/dashboard?from=&to=&productId=` |
 
 Queries only include rows from `artifact_publication.active_parse_attempt_id`.
@@ -28,7 +28,9 @@ Queries only include rows from `artifact_publication.active_parse_attempt_id`.
 
 HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST upload), `ADMIN` (reprocess + actuator metrics + all).
 
-Unauthenticated API calls → `401`. Insufficient role → `403`.
+Unauthenticated API calls → `401`. Insufficient role → `403`. The PWA login screen is `/login` (HTTP Basic stored in `sessionStorage`, never in the service worker cache).
+
+Filename hints in import file detail are tagged `provenance: INFERRED_DATA` and may include `productCodeHint` plus incomplete date hints. They never overwrite source fields.
 
 ## Errors
 
@@ -36,6 +38,6 @@ Unauthenticated API calls → `401`. Insufficient role → `403`.
 
 ## Ops
 
-Actuator-compatible: `/actuator/health`, `/actuator/info` (public); `/actuator/metrics` (ADMIN when security on).
+Actuator-compatible: `/actuator/health` and `/actuator/health/readiness` return **503** when PostgreSQL is down; `/actuator/health/liveness` stays up; `/actuator/info` (public); `/actuator/metrics` (ADMIN when security on).
 
 See `docs/ops.md` for CORS, limits, backup/restore and PWA cache rules.

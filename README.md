@@ -6,9 +6,9 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 ## Estado atual
 
 - Parser InterPDV QRP (PoC port) + Fixtures A/B
-- Persistência PostgreSQL (EF Core + SQL `V1`), raw storage, dedup
+- Backend **C# / ASP.NET Core 10** (EF Core + SQL `V1`), raw storage, dedup
 - API REST: imports, products, sales, dashboard
-- Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
+- Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar, `/login`)
 - PWA instalável (app shell only) + segurança operacional / backup
 - Reprocessamento admin (`POST /api/imports/files/{id}/reprocess`)
 
@@ -34,8 +34,7 @@ npm install
 npm run dev        # http://127.0.0.1:5173 (proxy /api -> :8080)
 npm run build      # gera SW + manifest
 npm run preview    # serve o build (PWA instalável em localhost)
-npm run test       # vitest
-npm run typecheck  # tsc -b
+npm run ci         # typecheck + oxlint + vitest 100%
 npx playwright test  # E2E (mobile + desktop) com backend em :8080
 ```
 
@@ -60,7 +59,7 @@ Detalhes em `docs/ops.md`.
 ## Segurança (resumo)
 
 - Default local: API aberta — **somente em rede controlada**.
-- Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`).
+- Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`). A PWA usa `/login` (credenciais só em `sessionStorage`).
 - Não exponha na internet sem autenticação. CORS vazio = same-origin.
 
 ## Limitações

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { listProducts, listSales } from '@/shared/api'
 import { SalesPage } from '../SalesPage'
@@ -12,7 +12,10 @@ vi.mock('@/shared/api', () => ({
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/sales']}>
-      <SalesPage />
+      <Routes>
+        <Route path="/sales" element={<SalesPage />} />
+        <Route path="/sales/:id" element={<div>sale detail</div>} />
+      </Routes>
     </MemoryRouter>
   )
 }
@@ -46,6 +49,7 @@ describe('SalesPage', () => {
       productId: 'p1',
       from: '2026-07-01T00:00',
       to: '2026-07-31T23:59',
+      page: 0,
       size: 50,
     })
   })
@@ -65,12 +69,32 @@ describe('SalesPage', () => {
   })
 
   it('navigates on row click', async () => {
-    const assign = vi.fn()
-    vi.stubGlobal('location', { ...window.location, assign })
     renderPage()
-    await screen.findByRole('link', { name: '101' })
-    fireEvent.click(screen.getByRole('link', { name: '101' }).closest('tr')!)
-    expect(assign).toHaveBeenCalledWith('/sales/s1')
-    vi.unstubAllGlobals()
+    const link = await screen.findByRole('link', { name: '101' })
+    fireEvent.click(link.closest('tr')!)
+    expect(await screen.findByText('sale detail')).toBeInTheDocument()
+  })
+
+  it('paginates and keyboard-activates a row', async () => {
+    vi.mocked(listSales).mockResolvedValue({
+      content: [{ id: 's1', externalSource: 'interpdv', externalSaleId: '101', occurredAt: '2026-07-01T12:00:00', total: '55.90' }],
+      page: 0,
+      size: 50,
+      totalElements: 80,
+      totalPages: 2,
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
+    expect(listSales).toHaveBeenCalledWith({
+      productId: undefined,
+      from: undefined,
+      to: undefined,
+      page: 1,
+      size: 50,
+    })
+    const row = screen.getByRole('link', { name: '101' }).closest('tr')!
+    fireEvent.keyDown(row, { key: 'Escape' })
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(await screen.findByText('sale detail')).toBeInTheDocument()
   })
 })

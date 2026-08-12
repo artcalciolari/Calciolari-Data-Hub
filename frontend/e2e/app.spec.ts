@@ -23,7 +23,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(firstSale).toBeVisible()
     await firstSale.click()
     await expect(page.getByRole('heading', { name: /Venda \d+/ })).toBeVisible()
-    await expect(page.locator('tbody').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Itens' })).toBeVisible()
   })
 
   test('product page shows daily bars', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.locator('tbody tr').first()).toBeVisible()
     const firstJob = page.locator('tbody tr').first()
     await firstJob.click()
-    await expect(page.getByRole('heading', { name: /Job / })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /AUDITORIA|Importação/ })).toBeVisible()
     await expect(page.getByText(/AUDITORIA 41, 01_07-20_07\.QRP|AUDITORIA\.QRP/).first()).toBeVisible()
   })
 

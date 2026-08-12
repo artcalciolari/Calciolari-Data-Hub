@@ -87,6 +87,7 @@ public sealed class DomainUnitTests
         Assert.Equal("", FilenameHints.Empty(null).OriginalFilename);
         Assert.False(new FilenameHints("x", new IncompleteDateRange(IncompleteDate.Create(1, 1), IncompleteDate.Create(2, 2)), null).IsEmpty);
         Assert.False(new FilenameHints("x", null, IncompleteDate.Create(1, 1)).IsEmpty);
+        Assert.False(new FilenameHints("x", null, null, "41").IsEmpty);
     }
 
     [Fact]
@@ -212,8 +213,9 @@ public sealed class DomainUnitTests
         product.SetName("new");
         Assert.Equal("new", product.Name);
 
-        _ = AppHost.HealthJson(false);
         _ = AppHost.HealthJson(true);
+        var healthDown = AppHost.HealthJson(false);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, ((IStatusCodeHttpResult)healthDown).StatusCode);
         var readyDown = AppHost.ReadinessJson(false);
         Assert.Equal(StatusCodes.Status503ServiceUnavailable, ((IStatusCodeHttpResult)readyDown).StatusCode);
         _ = AppHost.ReadinessJson(true);

@@ -11,6 +11,7 @@ Documentados de propósito — não escondidos em defaults. Ver também `IMPLEME
 | Sem rollback completo de dataset / escolha arbitrária de parser | Só “avançar” via reprocess | Tentativas antigas ficam auditáveis; pointer ativo só troca no sucesso |
 | Reprocessamento fora da navegação principal | Operação só via API admin | `POST /api/imports/files/{id}/reprocess` (`ADMIN` com security on) |
 | Worker assíncrono / reclaim de lease após crash | Parse síncrono no request; crash mid-parse pode deixar `PROCESSING` até lease expirar | Lease 5 min; reprocess subsequente rejeita lease ativo (`409`) ou segue após expiração |
+| HTTP `202` com parse síncrono | Clientes que pollam `PROCESSING` quase nunca veem esse estado | Resposta já traz o job concluído (`id`, `status`, `files`) |
 
 ## Operação / segurança
 
@@ -18,7 +19,7 @@ Documentados de propósito — não escondidos em defaults. Ver também `IMPLEME
 |---|---|---|
 | Security default `enabled=false` | API aberta em local | Somente rede controlada; perfil `production` fail-fast sem usuários |
 | HTTP Basic in-memory | Sem IdP / rotação | Suficiente para LAN; trocar antes de exposição externa |
-| Multi-instância no reprocess | Segundo nó pode receber `409` se lease ativo | Serialização in-JVM + lock de linha; cliente deve retentar |
+| Multi-instância no reprocess | Segundo nó pode receber `409` se lease ativo | Serialização in-process + lock de linha; cliente deve retentar |
 | Backup/restore manual | Inconsistência se só PG ou só raw for restaurado | Scripts `scripts/backup.sh` / `restore.sh`; unidade lógica documentada |
 
 ## Frontend / PWA
@@ -27,6 +28,7 @@ Documentados de propósito — não escondidos em defaults. Ver também `IMPLEME
 |---|---|---|
 | PWA só app-shell | Sem dados offline / parsing no client | `/api` e `/actuator` = NetworkOnly |
 | Sem UI de reprocess | Admin usa API/curl | Evita superfície acidental até haver fluxo de autorização na UI |
+| Auth na PWA | Produção exige HTTP Basic | Tela `/login`; credenciais só em `sessionStorage`, nunca no service worker |
 
 ## Fora de escopo (não é bug)
 

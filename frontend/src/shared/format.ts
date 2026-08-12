@@ -29,7 +29,7 @@ export function formatQuantity(value: string | null | undefined): string {
 export function formatPercent(value: string | null | undefined): string {
   const parsed = decimal(value)
   if (!parsed) return '—'
-  return `${parsed.toNumber()}%`
+  return `${parsed.toDecimalPlaces(2).toString().replace(/\.?0+$/, '')}%`
 }
 
 export function formatInteger(value: number): string {

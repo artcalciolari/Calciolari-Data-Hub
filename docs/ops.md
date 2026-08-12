@@ -23,7 +23,7 @@ Ver `.env.example`. Principais:
   - `VIEWER` — `GET /api/**`
   - `IMPORTER` — VIEWER + `POST /api/imports/qrp` (upload)
   - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess` + `/actuator/metrics`
-- `/actuator/health` e `/actuator/info` permanecem públicos.
+- `/actuator/health` and `/actuator/health/readiness` return HTTP **503** when the database is down. `/actuator/health/liveness` stays `200`. `/actuator/info` remains public.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - CORS vazio = same-origin only. Prefira reverse-proxy same-origin em produção.
 - Stack traces nunca são incluídos no Problem Details.

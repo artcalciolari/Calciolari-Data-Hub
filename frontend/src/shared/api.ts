@@ -1,4 +1,5 @@
 import type { IconName } from '@/shared/icons'
+import { clearBasicAuth, readBasicAuth } from '@/shared/auth'
 
 const base = ''
 
@@ -19,6 +20,14 @@ export interface ImportFileSummary {
   parseAttemptId: string | null
   createdAt: string
   completedAt: string | null
+  recordsFound?: number | null
+  parseStatus?: string | null
+  productName?: string | null
+  productExternalId?: string | null
+  parsedQuantity?: string | null
+  parsedRevenue?: string | null
+  sourceQuantity?: string | null
+  quantityValidationStatus?: string | null
 }
 
 export interface ImportJob {
@@ -84,6 +93,8 @@ export interface SaleItem {
   unitPrice: string
   discountPercentage: string | null
   total: string
+  previousStock: string | null
+  resultingStock: string | null
 }
 
 export interface SaleDetail {
@@ -132,11 +143,20 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${base}${path}`, {
-    headers: { Accept: 'application/json', ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) },
-    ...init,
-  })
+  const headers = new Headers(init?.headers)
+  headers.set('Accept', 'application/json')
+  if (!(init?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+  }
+  const auth = readBasicAuth()
+  if (auth) {
+    headers.set('Authorization', `Basic ${auth}`)
+  }
+  const response = await fetch(`${base}${path}`, { ...init, headers })
   if (!response.ok) {
+    if (response.status === 401) {
+      clearBasicAuth()
+    }
     let detail: string | undefined
     try {
       const problem = await response.json()

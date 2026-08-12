@@ -17,7 +17,7 @@ export function ImportFilePage() {
 
   return (
     <div className="grid">
-      <Link className="back-link" to={`/imports/${jobId}`}><Icon name="chevron-left" size={16} /> Job</Link>
+      <Link className="back-link" to={`/imports/${jobId}`}><Icon name="chevron-left" size={16} /> Importação</Link>
       <div className="page-head">
         <div>
           <h1>{file.originalFilename || 'Arquivo sem nome'}</h1>
@@ -47,8 +47,8 @@ export function ImportFilePage() {
 
       <section className="section">
         <div className="section-head">
-          <h2>Hints de filename</h2>
-          <span className="muted">INFERRED_DATA</span>
+          <h2>Pistas do nome do arquivo</h2>
+          <span className="muted">INFERRED_DATA — não substitui o conteúdo</span>
         </div>
         <pre style={{ margin: 0, padding: 16, overflow: 'auto' }}>{JSON.stringify(file.filenameHints, null, 2)}</pre>
       </section>

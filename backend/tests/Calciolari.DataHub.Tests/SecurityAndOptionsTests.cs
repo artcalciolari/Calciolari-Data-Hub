@@ -30,6 +30,9 @@ public sealed class SecurityAndOptionsTests
         Assert.Empty(new DataHubOptions { SecurityUsers = "  " }.UserEntries());
         Assert.Empty(new DataHubOptions { CorsAllowedOrigins = "  " }.OriginList());
         Assert.Equal(["http://localhost:5173"], new DataHubOptions { CorsAllowedOrigins = "http://localhost:5173" }.OriginList());
+        Assert.True(BasicAuthenticationHandler.FixedTimeEquals("secret", "secret"));
+        Assert.False(BasicAuthenticationHandler.FixedTimeEquals("secret", "wrong"));
+        Assert.False(BasicAuthenticationHandler.FixedTimeEquals("ab", "abc"));
     }
 
     [Fact]
@@ -227,8 +230,27 @@ public sealed class SecurityAndOptionsTests
 
         using var stream = new MemoryStream("abc"u8.ToArray());
         var spool = Calciolari.DataHub.Imports.Application.ImportIngestionService.SpoolAndHash(stream);
-        Assert.Equal(3, spool.Bytes.Length);
+        Assert.Equal(3, spool.ByteSize);
         Assert.Equal(64, spool.Sha256.Length);
+        Assert.True(File.Exists(spool.TempPath));
+        File.Delete(spool.TempPath);
+        using var boom = new ThrowingReadStream();
+        Assert.Throws<IOException>(() =>
+            Calciolari.DataHub.Imports.Application.ImportIngestionService.SpoolAndHash(boom));
+    }
+
+    private sealed class ThrowingReadStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => 1;
+        public override long Position { get; set; }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new IOException("read");
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [Fact]
@@ -269,6 +291,9 @@ public sealed class SecurityAndOptionsTests
         var hints = new Calciolari.DataHub.Imports.Domain.Hints.FilenameHintsParser().Parse("AUDITORIA 01_07-20_07.QRP");
         var json = Calciolari.DataHub.Imports.Application.FilenameHintsJson.Write(hints);
         Assert.Contains("periodHint", json);
+        Assert.Contains("INFERRED_DATA", json);
+        Assert.Contains("productCodeHint", Calciolari.DataHub.Imports.Application.FilenameHintsJson.Write(
+            new Calciolari.DataHub.Imports.Domain.Hints.FilenameHintsParser().Parse("AUDITORIA 41, 01_07-20_07.QRP")));
         Assert.NotNull(Calciolari.DataHub.Imports.Application.FilenameHintsJson.Read(json));
         Assert.Null(Calciolari.DataHub.Imports.Application.FilenameHintsJson.Read(null));
         Assert.Equal("not-json", Calciolari.DataHub.Imports.Application.FilenameHintsJson.Read("not-json"));

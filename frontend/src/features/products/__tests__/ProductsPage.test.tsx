@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { listProducts } from '@/shared/api'
 import { ProductsPage } from '../ProductsPage'
@@ -11,7 +11,10 @@ vi.mock('@/shared/api', () => ({
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/products']}>
-      <ProductsPage />
+      <Routes>
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/:id" element={<div>product detail</div>} />
+      </Routes>
     </MemoryRouter>
   )
 }
@@ -32,7 +35,7 @@ describe('ProductsPage', () => {
     fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: '  molho  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Buscar' }))
     expect(await screen.findByRole('link', { name: 'MOLHO' })).toBeInTheDocument()
-    expect(listProducts).toHaveBeenLastCalledWith({ q: 'molho', size: 50 })
+    expect(listProducts).toHaveBeenLastCalledWith({ q: 'molho', page: 0, size: 50 })
   })
 
   it('shows loading, error and empty states', async () => {
@@ -49,13 +52,29 @@ describe('ProductsPage', () => {
     expect(await screen.findByText('Nenhum produto publicado.')).toBeInTheDocument()
   })
 
-  it('navigates on row click', async () => {
-    const assign = vi.fn()
-    vi.stubGlobal('location', { ...window.location, assign })
+  it('navigates on row click and keyboard', async () => {
     renderPage()
-    await screen.findByRole('link', { name: 'MOLHO' })
-    fireEvent.click(screen.getByRole('link', { name: 'MOLHO' }).closest('tr')!)
-    expect(assign).toHaveBeenCalledWith('/products/p1')
-    vi.unstubAllGlobals()
+    const link = await screen.findByRole('link', { name: 'MOLHO' })
+    fireEvent.click(link.closest('tr')!)
+    expect(await screen.findByText('product detail')).toBeInTheDocument()
+  })
+
+  it('paginates and keyboard-activates a row', async () => {
+    vi.mocked(listProducts).mockResolvedValue({
+      content: [{ id: 'p1', externalSource: 'interpdv', externalId: '41', name: 'MOLHO', unit: null }],
+      page: 0,
+      size: 50,
+      totalElements: 80,
+      totalPages: 2,
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
+    expect(listProducts).toHaveBeenCalledWith({ q: undefined, page: 1, size: 50 })
+    fireEvent.click(screen.getByRole('button', { name: 'Anterior' }))
+    expect(listProducts).toHaveBeenCalledWith({ q: undefined, page: 0, size: 50 })
+    const row = screen.getByRole('link', { name: 'MOLHO' }).closest('tr')!
+    fireEvent.keyDown(row, { key: 'Escape' })
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(await screen.findByText('product detail')).toBeInTheDocument()
   })
 })

@@ -41,6 +41,8 @@ describe('format', () => {
 
   it('formats discount percentage as integer percent', () => {
     expect(formatPercent('8')).toBe('8%')
+    expect(formatPercent('8.00')).toBe('8%')
+    expect(formatPercent('8.50')).toBe('8.5%')
     expect(formatPercent(undefined)).toBe('—')
   })
 })

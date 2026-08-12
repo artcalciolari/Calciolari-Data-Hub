@@ -8,6 +8,8 @@ using Calciolari.DataHub.Persistence;
 using Calciolari.DataHub.Persistence.Entities;
 using Calciolari.DataHub.Shared.Api;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace Calciolari.DataHub.Imports.Application;
@@ -25,17 +27,20 @@ public sealed class ImportIngestionService
     private readonly IImportParser _parser;
     private readonly FilenameHintsParser _hintsParser;
     private readonly DataHubDbContext _db;
+    private readonly ILogger<ImportIngestionService> _logger;
 
     public ImportIngestionService(
         IRawFileStorage rawFileStorage,
         IImportParser parser,
         FilenameHintsParser hintsParser,
-        DataHubDbContext db)
+        DataHubDbContext db,
+        ILogger<ImportIngestionService>? logger = null)
     {
         _rawFileStorage = rawFileStorage;
         _parser = parser;
         _hintsParser = hintsParser;
         _db = db;
+        _logger = logger ?? NullLogger<ImportIngestionService>.Instance;
     }
 
     public ImportedFileResult Ingest(Stream content, string? originalFilename)
@@ -187,63 +192,31 @@ public sealed class ImportIngestionService
 
         var file = _db.ImportFiles.Single(f => f.Id == importFileId);
         PersistParseRows(attempt.Id, parsed);
+        var outcome = ApplyParseOutcome(claim.ArtifactId, attempt.Id, parsed);
 
-        var published = false;
-        string parseStatus;
-        if (parsed.HasFatalOrError())
-        {
-            parseStatus = parsed.Issues.Any(i => i.Severity == IssueSeverity.Fatal) ? "FAILED" : "INVALID";
-        }
-        else
-        {
-            var saleIds = parsed.Movements
-                .Where(m => m.Direction == MovementDirection.Out && m.ExternalSaleId is not null)
-                .Select(m => m.ExternalSaleId!)
-                .Distinct()
-                .ToList();
-            var overlap = saleIds.Count > 0 && ExistsOverlappingPublishedSales(claim.ArtifactId, saleIds);
-            if (overlap)
-            {
-                parseStatus = "WARNING";
-                _db.ValidationResults.Add(new ValidationResultEntity(
-                    Guid.NewGuid(),
-                    attempt.Id,
-                    "OVERLAPPING_REPORT",
-                    "WARNING",
-                    null,
-                    null,
-                    null,
-                    null,
-                    "identity-v1",
-                    "canonical publication blocked"));
-            }
-            else
-            {
-                PublishCanonical(claim.ArtifactId, attempt.Id, parsed);
-                published = true;
-                parseStatus = parsed.Issues.Any(i => i.Severity == IssueSeverity.Warning) ? "WARNING" : "VALID";
-            }
-        }
-
-        attempt.Status = parseStatus;
+        attempt.Status = outcome.ParseStatus;
         attempt.RecordsFound = parsed.Movements.Count;
         attempt.CompletedAt = DateTimeOffset.UtcNow;
         attempt.LeaseUntil = null;
         file.ParseAttemptId = attempt.Id;
-        if (published)
-        {
-            file.Status = MapFileStatus(parseStatus);
-        }
-
+        file.Status = outcome.Published ? "IMPORTED" : MapFileStatus(outcome.ParseStatus);
         file.CompletedAt = DateTimeOffset.UtcNow;
         _db.SaveChanges();
+        _logger.LogInformation(
+            "Reprocessed originalFilename={OriginalFilename} sha256={Sha256} parser={Parser} records={Records} parseStatus={ParseStatus} published={Published}",
+            file.OriginalFilename,
+            _db.RawArtifacts.AsNoTracking().Single(a => a.Id == claim.ArtifactId).Sha256,
+            InterPdvQrpParser.ParserName,
+            parsed.Movements.Count,
+            outcome.ParseStatus,
+            outcome.Published);
         return new ReprocessResult(
             file.Id,
             claim.ArtifactId,
             claim.PreviousActiveParseAttemptId,
             attempt.Id,
-            published,
-            parseStatus,
+            outcome.Published,
+            outcome.ParseStatus,
             file.Status,
             parsed.Movements.Count);
     }
@@ -261,6 +234,7 @@ public sealed class ImportIngestionService
         attempt.CompletedAt = DateTimeOffset.UtcNow;
         attempt.LeaseUntil = null;
         _db.SaveChanges();
+        _logger.LogWarning("Parse attempt {AttemptId} failed: {Summary}", attemptId, attempt.ErrorSummary);
     }
 
     public ImportedFileResult IngestIntoJob(Guid jobId, Stream content, string? originalFilename)
@@ -268,48 +242,78 @@ public sealed class ImportIngestionService
         ArgumentNullException.ThrowIfNull(content);
         var filename = originalFilename ?? string.Empty;
         var spool = SpoolAndHash(content);
-
-        var stored = _rawFileStorage.PutIfAbsent(
-            new MemoryStream(spool.Bytes),
-            RawFileDescriptor.Create(spool.Sha256, spool.Bytes.Length, "QRP"));
-
-        var hints = _hintsParser.Parse(filename);
-        var hintsJson = FilenameHintsJson.Write(hints);
-
-        IngestContext? ctx = null;
-        Exception? lastConflict = null;
-        for (var attempt = 0; attempt < 5; attempt++)
+        try
         {
-            try
+            StoredRawFile stored;
+            using (var storedStream = File.OpenRead(spool.TempPath))
             {
-                ctx = InTransaction(() => OpenOrCreateOnce(jobId, spool, stored, filename, hintsJson));
-                break;
+                stored = _rawFileStorage.PutIfAbsent(
+                    storedStream,
+                    RawFileDescriptor.Create(spool.Sha256, spool.ByteSize, "QRP"));
             }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+
+            var hints = _hintsParser.Parse(filename);
+            var hintsJson = FilenameHintsJson.Write(hints);
+
+            IngestContext? ctx = null;
+            Exception? lastConflict = null;
+            for (var attempt = 0; attempt < 5; attempt++)
             {
-                lastConflict = ex;
-                _db.ChangeTracker.Clear();
+                try
+                {
+                    ctx = InTransaction(() => OpenOrCreateOnce(jobId, spool, stored, filename, hintsJson));
+                    break;
+                }
+                catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+                {
+                    lastConflict = ex;
+                    _db.ChangeTracker.Clear();
+                }
+            }
+
+            if (ctx is null)
+            {
+                throw new InvalidOperationException(
+                    "failed to open/create artifact after retries for " + spool.Sha256, lastConflict);
+            }
+
+            if (ctx.SkipParse)
+            {
+                _logger.LogInformation(
+                    "Import skipped parse originalFilename={OriginalFilename} sha256={Sha256} parser={Parser} fileStatus={FileStatus} deduplicated={Deduplicated}",
+                    filename,
+                    spool.Sha256,
+                    InterPdvQrpParser.ParserName,
+                    ctx.File.Status,
+                    ctx.File.Deduplicated);
+                return ToResult(ctx, null, ctx.AlreadyPublished);
+            }
+
+            ParsedImport parsed;
+            using (var input = _rawFileStorage.OpenVerified(stored.StorageKey, spool.Sha256, spool.ByteSize))
+            {
+                parsed = _parser.Parse(new ParserInput(input, spool.ByteSize, filename, "QRP"));
+            }
+
+            var result = InTransaction(() => FinalizeParse(ctx, parsed));
+            _logger.LogInformation(
+                "Imported originalFilename={OriginalFilename} sha256={Sha256} parser={Parser} records={Records} parseStatus={ParseStatus} published={Published} deduplicated={Deduplicated}",
+                filename,
+                spool.Sha256,
+                InterPdvQrpParser.ParserName,
+                result.RecordsFound,
+                result.ParseStatus,
+                result.Published,
+                result.Deduplicated);
+            return result;
+        }
+        finally
+        {
+            if (File.Exists(spool.TempPath))
+            {
+                File.Delete(spool.TempPath);
             }
         }
-
-        if (ctx is null)
-        {
-            throw new InvalidOperationException(
-                "failed to open/create artifact after retries for " + spool.Sha256, lastConflict);
-        }
-
-        if (ctx.SkipParse)
-        {
-            return ToResult(ctx, null, ctx.AlreadyPublished);
-        }
-
-        ParsedImport parsed;
-        using (var input = _rawFileStorage.OpenVerified(stored.StorageKey, spool.Sha256, spool.Bytes.Length))
-        {
-            parsed = _parser.Parse(new ParserInput(input, spool.Bytes.Length, filename, "QRP"));
-        }
-
-        return InTransaction(() => FinalizeParse(ctx, parsed));
     }
 
     private IngestContext OpenOrCreateOnce(
@@ -327,7 +331,7 @@ public sealed class ImportIngestionService
         if (existing is null)
         {
             artifact = Add(new RawArtifactEntity(
-                Guid.NewGuid(), spool.Sha256, spool.Bytes.Length, stored.StorageKey, "QRP"));
+                Guid.NewGuid(), spool.Sha256, spool.ByteSize, stored.StorageKey, "QRP"));
             _db.SaveChanges();
         }
         else
@@ -441,53 +445,57 @@ public sealed class ImportIngestionService
         var job = _db.ImportJobs.Single(j => j.Id == ctx.Job.Id);
 
         PersistParseRows(attempt.Id, parsed);
+        var outcome = ApplyParseOutcome(ctx.Artifact.Id, attempt.Id, parsed);
 
-        var blocking = parsed.HasFatalOrError();
-        var published = false;
-        string parseStatus;
-        if (blocking)
-        {
-            parseStatus = parsed.Issues.Any(i => i.Severity == IssueSeverity.Fatal) ? "FAILED" : "INVALID";
-        }
-        else
-        {
-            var saleIds = parsed.Movements
-                .Where(m => m.Direction == MovementDirection.Out && m.ExternalSaleId is not null)
-                .Select(m => m.ExternalSaleId!)
-                .Distinct()
-                .ToList();
-            var overlap = saleIds.Count > 0 && ExistsOverlappingPublishedSales(ctx.Artifact.Id, saleIds);
-            if (overlap)
-            {
-                parseStatus = "WARNING";
-                _db.ValidationResults.Add(new ValidationResultEntity(
-                    Guid.NewGuid(),
-                    attempt.Id,
-                    "OVERLAPPING_REPORT",
-                    "WARNING",
-                    null,
-                    null,
-                    null,
-                    null,
-                    "identity-v1",
-                    "canonical publication blocked"));
-            }
-            else
-            {
-                PublishCanonical(ctx.Artifact.Id, attempt.Id, parsed);
-                published = true;
-                parseStatus = parsed.Issues.Any(i => i.Severity == IssueSeverity.Warning) ? "WARNING" : "VALID";
-            }
-        }
-
-        attempt.Status = parseStatus;
+        attempt.Status = outcome.ParseStatus;
         attempt.RecordsFound = parsed.Movements.Count;
         attempt.CompletedAt = DateTimeOffset.UtcNow;
         attempt.LeaseUntil = null;
-        file.Status = published ? "IMPORTED" : MapFileStatus(parseStatus);
+        file.Status = outcome.Published ? "IMPORTED" : MapFileStatus(outcome.ParseStatus);
         file.CompletedAt = DateTimeOffset.UtcNow;
         _db.SaveChanges();
-        return ToResult(new IngestContext(job, file, ctx.Artifact, attempt, ctx.SkipParse, published), parsed, published);
+        return ToResult(new IngestContext(job, file, ctx.Artifact, attempt, ctx.SkipParse, outcome.Published), parsed, outcome.Published);
+    }
+
+    private (bool Published, string ParseStatus) ApplyParseOutcome(Guid artifactId, Guid attemptId, ParsedImport parsed)
+    {
+        if (parsed.HasFatalOrError())
+        {
+            var failed = parsed.Issues.Any(i => i.Severity == IssueSeverity.Fatal) ? "FAILED" : "INVALID";
+            return (false, failed);
+        }
+
+        var saleIds = parsed.Movements
+            .Where(m => m.Direction == MovementDirection.Out && m.ExternalSaleId is not null)
+            .Select(m => m.ExternalSaleId!)
+            .Distinct()
+            .ToList();
+        var overlap = saleIds.Count > 0 && ExistsOverlappingPublishedSales(artifactId, saleIds);
+        if (overlap)
+        {
+            _db.ValidationResults.Add(new ValidationResultEntity(
+                Guid.NewGuid(),
+                attemptId,
+                "OVERLAPPING_REPORT",
+                "WARNING",
+                null,
+                null,
+                null,
+                null,
+                "identity-v1",
+                "canonical publication blocked"));
+            return (false, "WARNING");
+        }
+
+        if (parsed.ExternalProductId is null)
+        {
+            var status = parsed.Issues.Any(i => i.Severity == IssueSeverity.Warning) ? "WARNING" : "VALID";
+            return (false, status);
+        }
+
+        PublishCanonical(artifactId, attemptId, parsed);
+        var parseStatus = parsed.Issues.Any(i => i.Severity == IssueSeverity.Warning) ? "WARNING" : "VALID";
+        return (true, parseStatus);
     }
 
     private void PersistParseRows(Guid attemptId, ParsedImport parsed)
@@ -508,26 +516,29 @@ public sealed class ImportIngestionService
 
     private void PublishCanonical(Guid artifactId, Guid attemptId, ParsedImport parsed)
     {
-        if (parsed.ExternalProductId is null)
-        {
-            return;
-        }
-
-        var product = _db.Products.SingleOrDefault(p => p.ExternalSource == Source && p.ExternalId == parsed.ExternalProductId)
+        var externalProductId = parsed.ExternalProductId!;
+        var product = _db.Products.SingleOrDefault(p => p.ExternalSource == Source && p.ExternalId == externalProductId)
                       ?? Add(new ProductEntity(
                           Guid.NewGuid(),
                           Source,
-                          parsed.ExternalProductId,
-                          parsed.ProductName ?? parsed.ExternalProductId,
+                          externalProductId,
+                          parsed.ProductName ?? externalProductId,
                           attemptId));
         if (parsed.ProductName is not null && parsed.ProductName != product.Name)
         {
             product.SetName(parsed.ProductName);
         }
 
-        var salesByExternal = _db.Sales
-            .Where(s => s.ExternalSource == Source)
-            .ToDictionary(s => s.ExternalSaleId, s => s);
+        var saleIds = parsed.Movements
+            .Where(m => m.Direction == MovementDirection.Out && m.ExternalSaleId is not null)
+            .Select(m => m.ExternalSaleId!)
+            .Distinct()
+            .ToList();
+        var salesByExternal = saleIds.Count == 0
+            ? new Dictionary<string, SaleEntity>()
+            : _db.Sales
+                .Where(s => s.ExternalSource == Source && saleIds.Contains(s.ExternalSaleId))
+                .ToDictionary(s => s.ExternalSaleId, s => s);
 
         foreach (var movement in parsed.Movements)
         {
@@ -676,6 +687,7 @@ public sealed class ImportIngestionService
         try
         {
             byte[] hash;
+            long written = 0;
             using (var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
             using (var output = File.Create(temp))
             {
@@ -685,21 +697,23 @@ public sealed class ImportIngestionService
                 {
                     output.Write(buffer, 0, read);
                     digest.AppendData(buffer.AsSpan(0, read));
+                    written += read;
                 }
 
                 hash = digest.GetHashAndReset();
             }
 
-            var bytes = File.ReadAllBytes(temp);
             var sha = Convert.ToHexString(hash).ToLowerInvariant();
-            return new SpoolResult(bytes, sha);
+            return new SpoolResult(temp, sha, written);
         }
-        finally
+        catch
         {
             if (File.Exists(temp))
             {
                 File.Delete(temp);
             }
+
+            throw;
         }
     }
 
@@ -756,7 +770,7 @@ public sealed class ImportIngestionService
     internal static bool IsUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException pg && pg.SqlState == PostgresErrorCodes.UniqueViolation;
 
-    internal sealed record SpoolResult(byte[] Bytes, string Sha256);
+    internal sealed record SpoolResult(string TempPath, string Sha256, long ByteSize);
 
     private sealed record IngestContext(
         ImportJobEntity Job,

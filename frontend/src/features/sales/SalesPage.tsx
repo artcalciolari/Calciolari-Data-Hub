@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { listProducts, listSales } from '@/shared/api'
 import { formatDateTime, formatMoney } from '@/shared/format'
 import { StateMessage } from '@/shared/StateMessage'
-import { Skeleton } from '@/shared/Skeleton'
+import { TableSkeleton } from '@/shared/TableSkeleton'
+import { Pagination } from '@/shared/Pagination'
 import { useAsync } from '@/shared/useAsync'
 
 export function SalesPage() {
+  const navigate = useNavigate()
   const [productId, setProductId] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [page, setPage] = useState(0)
   const [applied, setApplied] = useState({ productId: '', from: '', to: '' })
 
   const products = useAsync(() => listProducts({ size: 50 }), [])
@@ -18,9 +21,10 @@ export function SalesPage() {
       productId: applied.productId || undefined,
       from: applied.from || undefined,
       to: applied.to || undefined,
+      page,
       size: 50,
     }),
-    [applied]
+    [applied, page]
   )
 
   return (
@@ -36,6 +40,7 @@ export function SalesPage() {
         className="form-row"
         onSubmit={(event) => {
           event.preventDefault()
+          setPage(0)
           setApplied({ productId, from, to })
         }}
       >
@@ -58,55 +63,44 @@ export function SalesPage() {
         ) : sales.error ? (
           <StateMessage tone="error" title="Erro ao carregar vendas">{sales.error}</StateMessage>
         ) : sales.data && sales.data.content.length > 0 ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Venda</th>
-                  <th>Data/Hora</th>
-                  <th className="num">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sales.data.content.map((sale) => (
-                  <tr key={sale.id} className="link-row" onClick={() => { window.location.assign(`/sales/${sale.id}`) }}>
-                    <td><Link to={`/sales/${sale.id}`}>{sale.externalSaleId}</Link></td>
-                    <td>{formatDateTime(sale.occurredAt)}</td>
-                    <td className="num">{formatMoney(sale.total)}</td>
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Venda</th>
+                    <th>Data/Hora</th>
+                    <th className="num">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {sales.data.content.map((sale) => (
+                    <tr
+                      key={sale.id}
+                      className="link-row"
+                      tabIndex={0}
+                      onClick={() => navigate(`/sales/${sale.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          navigate(`/sales/${sale.id}`)
+                        }
+                      }}
+                    >
+                      <td><Link to={`/sales/${sale.id}`}>{sale.externalSaleId}</Link></td>
+                      <td>{formatDateTime(sale.occurredAt)}</td>
+                      <td className="num">{formatMoney(sale.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} totalPages={sales.data.totalPages} onPage={setPage} />
+          </>
         ) : (
           <div className="empty-state">Nenhuma venda no filtro atual.</div>
         )}
       </section>
-    </div>
-  )
-}
-
-function TableSkeleton({ rows, cols }: { rows: number; cols: number }) {
-  return (
-    <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            {Array.from({ length: cols }).map((_, i) => (
-              <th key={i}><Skeleton className="line w-40" /></th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rows }).map((_, i) => (
-            <tr key={i}>
-              {Array.from({ length: cols }).map((_, j) => (
-                <td key={j}><Skeleton className={j === 0 ? 'line w-60' : 'line w-40'} /></td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   )
 }

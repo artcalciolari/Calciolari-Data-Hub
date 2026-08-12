@@ -5,42 +5,59 @@ import { formatDateTime, formatInteger, formatMoney, formatQuantity } from '@/sh
 import { Icon, type IconName } from '@/shared/icons'
 import { StateMessage } from '@/shared/StateMessage'
 import { Skeleton } from '@/shared/Skeleton'
+import { DailyBars } from '@/shared/DailyBars'
 import { useAsync } from '@/shared/useAsync'
 
 type Metric = 'revenue' | 'quantity'
 
 export function DashboardPage() {
   const [metric, setMetric] = useState<Metric>('revenue')
-  const state = useAsync(() => getDashboard(), [])
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [applied, setApplied] = useState({ from: '', to: '' })
+  const state = useAsync(
+    () => getDashboard({
+      from: applied.from || undefined,
+      to: applied.to || undefined,
+    }),
+    [applied],
+  )
   const recent = useAsync(() => listSales({ size: 5 }), [])
 
-  if (state.loading || recent.loading) {
+  if (state.loading) {
     return <DashboardSkeleton />
   }
   if (state.error) {
     return <StateMessage tone="error" title="Não foi possível carregar o resumo">{state.error}</StateMessage>
   }
-  if (recent.error) {
-    return <StateMessage tone="error" title="Não foi possível carregar as vendas recentes">{recent.error}</StateMessage>
-  }
   const data = state.data
-  const recentSales = recent.data
-  if (!data || !recentSales) {
+  if (!data) {
     return <StateMessage title="Nenhum dado disponível" />
   }
 
-  const maxMetric = Math.max(...data.daily.map((p) => Number(p[metric])), 0.001)
-  const maxTopRevenue = Math.max(...data.topProducts.map((p) => Number(p.revenue)), 0.001)
   const formatMetric = metric === 'revenue' ? formatMoney : formatQuantity
+  const featured = data.topProducts[0]
 
   return (
     <div className="grid">
       <div className="page-head">
         <div>
           <h1>Resumo</h1>
-          <p className="muted">Somente dados publicados (active parse attempt)</p>
+          <p className="muted">Somente dados publicados</p>
         </div>
       </div>
+
+      <form
+        className="form-row"
+        onSubmit={(event) => {
+          event.preventDefault()
+          setApplied({ from, to })
+        }}
+      >
+        <input aria-label="De" type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} />
+        <input aria-label="Até" type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} />
+        <button className="btn primary" type="submit">Filtrar</button>
+      </form>
 
       <section className="hero">
         <div className="hero-k">Faturamento no período</div>
@@ -50,7 +67,7 @@ export function DashboardPage() {
         </div>
         <div className="hero-range">
           <Icon name="clock" size={13} />
-          {formatDateTime(data.firstMovementAt)} → {formatDateTime(data.lastMovementAt)}
+          Primeira movimentação {formatDateTime(data.firstMovementAt)} → última {formatDateTime(data.lastMovementAt)}
         </div>
       </section>
 
@@ -60,6 +77,26 @@ export function DashboardPage() {
         <Kpi icon="items" label="Itens" value={formatInteger(data.itemCount)} />
         <Kpi icon="ticket" label="Ticket médio" value={data.averageTicket ? formatMoney(data.averageTicket) : '—'} />
       </section>
+
+      {featured && (
+        <section className="section featured">
+          <div className="section-head">
+            <h2>Produto em destaque</h2>
+            <span className="muted">maior faturamento</span>
+          </div>
+          <Link className="featured-name" to={`/products/${featured.productId}`}>{featured.name}</Link>
+          <p className="muted">
+            {formatMoney(featured.revenue)} · {formatQuantity(featured.quantity)}
+          </p>
+          <p className="muted">
+            Primeira movimentação {formatDateTime(data.firstMovementAt)} · última {formatDateTime(data.lastMovementAt)}
+          </p>
+          <div className="form-row">
+            <Link className="btn primary" to="/sales">Ver vendas</Link>
+            <Link className="btn secondary" to="/imports">Importar arquivos</Link>
+          </div>
+        </section>
+      )}
 
       <section className="section">
         <div className="section-head">
@@ -84,24 +121,7 @@ export function DashboardPage() {
         {data.daily.length === 0 ? (
           <div className="empty-state">Sem movimentações publicadas no período.</div>
         ) : (
-          <div className="bars" role="img" aria-label="Evolução diária">
-            {data.daily.map((point) => {
-              const value = Number(point[metric])
-              const isMax = value === maxMetric
-              const height = Math.max(4, (value / maxMetric) * 140)
-              return (
-                <div key={point.date} className="bar-wrap">
-                  {isMax && <div className="bar-value">{formatMetric(point[metric])}</div>}
-                  <div
-                    className={isMax ? 'bar bar-max' : 'bar'}
-                    style={{ height }}
-                    title={`${point.date}: ${formatQuantity(point.quantity)} / ${formatMoney(point.revenue)}`}
-                  />
-                  <div className="bar-label">{point.date.slice(8, 10)}/{point.date.slice(5, 7)}</div>
-                </div>
-              )
-            })}
-          </div>
+          <DailyBars points={data.daily} metric={metric} format={formatMetric} ariaLabel="Evolução diária" />
         )}
       </section>
 
@@ -116,6 +136,7 @@ export function DashboardPage() {
           ) : (
             <ol className="top-list">
               {data.topProducts.map((product, index) => {
+                const maxTopRevenue = Math.max(...data.topProducts.map((p) => Number(p.revenue)), 0.001)
                 const width = Math.max(4, (Number(product.revenue) / maxTopRevenue) * 100)
                 return (
                   <li key={product.productId}>
@@ -129,7 +150,7 @@ export function DashboardPage() {
                           <span className="top-rev">{formatMoney(product.revenue)}</span>
                         </div>
                         <div className="top-bar"><span style={{ width: `${width}%` }} /></div>
-                        <div className="top-sub">cód {product.externalId} · {formatQuantity(product.quantity)} un</div>
+                        <div className="top-sub">cód {product.externalId} · {formatQuantity(product.quantity)}</div>
                       </div>
                     </Link>
                   </li>
@@ -144,11 +165,15 @@ export function DashboardPage() {
             <h2>Vendas recentes</h2>
             <Link className="see-all" to="/sales">ver todas</Link>
           </div>
-          {recentSales.content.length === 0 ? (
+          {recent.loading ? (
+            <p className="muted">Carregando vendas…</p>
+          ) : recent.error ? (
+            <StateMessage tone="error" title="Não foi possível carregar as vendas recentes">{recent.error}</StateMessage>
+          ) : !recent.data || recent.data.content.length === 0 ? (
             <div className="empty-state">Nenhuma venda publicada ainda.</div>
           ) : (
             <div className="recent">
-              {recentSales.content.map((sale) => (
+              {recent.data.content.map((sale) => (
                 <Link key={sale.id} className="recent-row" to={`/sales/${sale.id}`}>
                   <span className="recent-id">#{sale.externalSaleId}</span>
                   <span className="recent-when">{formatDateTime(sale.occurredAt)}</span>

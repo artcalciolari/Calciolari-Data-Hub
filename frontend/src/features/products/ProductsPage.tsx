@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { listProducts } from '@/shared/api'
 import { StateMessage } from '@/shared/StateMessage'
-import { Skeleton } from '@/shared/Skeleton'
+import { TableSkeleton } from '@/shared/TableSkeleton'
+import { Pagination } from '@/shared/Pagination'
 import { useAsync } from '@/shared/useAsync'
 
 export function ProductsPage() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState('')
-  const state = useAsync(() => listProducts({ q: submitted || undefined, size: 50 }), [submitted])
+  const [page, setPage] = useState(0)
+  const state = useAsync(() => listProducts({ q: submitted || undefined, page, size: 50 }), [submitted, page])
 
   return (
     <div className="grid">
@@ -23,6 +26,7 @@ export function ProductsPage() {
         className="form-row"
         onSubmit={(event) => {
           event.preventDefault()
+          setPage(0)
           setSubmitted(query.trim())
         }}
       >
@@ -41,55 +45,44 @@ export function ProductsPage() {
         ) : state.error ? (
           <StateMessage tone="error" title="Erro ao carregar produtos">{state.error}</StateMessage>
         ) : state.data && state.data.content.length > 0 ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  <th>Código</th>
-                  <th>Fonte</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.data.content.map((product) => (
-                  <tr key={product.id} className="link-row" onClick={() => { window.location.assign(`/products/${product.id}`) }}>
-                    <td><Link to={`/products/${product.id}`}>{product.name}</Link></td>
-                    <td>{product.externalId}</td>
-                    <td><span className="chip">{product.externalSource}</span></td>
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Código</th>
+                    <th>Fonte</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {state.data.content.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="link-row"
+                      tabIndex={0}
+                      onClick={() => navigate(`/products/${product.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          navigate(`/products/${product.id}`)
+                        }
+                      }}
+                    >
+                      <td><Link to={`/products/${product.id}`}>{product.name}</Link></td>
+                      <td>{product.externalId}</td>
+                      <td><span className="chip">{product.externalSource}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} totalPages={state.data.totalPages} onPage={setPage} />
+          </>
         ) : (
           <div className="empty-state">Nenhum produto publicado.</div>
         )}
       </section>
-    </div>
-  )
-}
-
-function TableSkeleton({ rows, cols }: { rows: number; cols: number }) {
-  return (
-    <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            {Array.from({ length: cols }).map((_, i) => (
-              <th key={i}><Skeleton className="line w-40" /></th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rows }).map((_, i) => (
-            <tr key={i}>
-              {Array.from({ length: cols }).map((_, j) => (
-                <td key={j}><Skeleton className={j === 0 ? 'line w-60' : 'line w-40'} /></td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   )
 }

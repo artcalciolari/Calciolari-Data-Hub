@@ -54,8 +54,9 @@ describe('PwaUpdateBanner', () => {
   it('schedules periodic service worker update checks', () => {
     vi.useFakeTimers()
     registrationUpdate.mockClear()
-    render(<PwaUpdateBanner />)
+    const { unmount } = render(<PwaUpdateBanner />)
     vi.advanceTimersByTime(60 * 60 * 1000)
     expect(registrationUpdate).toHaveBeenCalled()
+    unmount()
   })
 })

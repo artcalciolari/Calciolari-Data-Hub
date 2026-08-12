@@ -125,7 +125,9 @@ public static class AppHost
     }
 
     internal static IResult HealthJson(bool canConnect) =>
-        Results.Json(new { status = canConnect ? "UP" : "DOWN" });
+        canConnect
+            ? Results.Json(new { status = "UP" })
+            : Results.Json(new { status = "DOWN" }, statusCode: StatusCodes.Status503ServiceUnavailable);
 
     internal static IResult ReadinessJson(bool canConnect) =>
         canConnect

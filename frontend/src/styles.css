@@ -910,6 +910,106 @@ tr.link-row:hover {
   }
 }
 
+tr.link-row:focus-visible {
+  outline: 2px solid var(--salvia);
+  outline-offset: -2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--salvia);
+  outline-offset: 2px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 12px 4px 0;
+}
+
+.result-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.result-card,
+.sale-item-card {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.result-head,
+.sale-item-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.notice {
+  margin: 12px 0 0;
+}
+
+.notice.error {
+  color: var(--danger);
+}
+
+.notice.warn {
+  color: var(--warn);
+}
+
+.featured-name {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.login-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.sale-items {
+  display: grid;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @media (max-width: 480px) {
   .grid.cards-4,
   .grid.cards-2 {

@@ -24,20 +24,31 @@ public sealed class FilenameHintsParser
         @"(?<!\d)(\d{2})/(\d{2})(?!\d)",
         RegexOptions.Compiled);
 
+    private static readonly Regex ProductCode = new(
+        @"AUDITORIA\s+(\d+)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public FilenameHints Parse(string? originalFilename)
     {
         var preserved = originalFilename ?? string.Empty;
         var basename = StripDirectory(preserved);
         var stem = StripExtension(basename);
+        var productCodeHint = MatchProductCode(stem);
 
         var period = MatchPeriod(stem);
         if (period is not null)
         {
-            return new FilenameHints(preserved, period, null);
+            return new FilenameHints(preserved, period, null, productCodeHint);
         }
 
         var single = MatchSingle(stem);
-        return new FilenameHints(preserved, null, single);
+        return new FilenameHints(preserved, null, single, productCodeHint);
+    }
+
+    private static string? MatchProductCode(string stem)
+    {
+        var match = ProductCode.Match(stem);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private static IncompleteDateRange? MatchPeriod(string stem)
@@ -99,7 +110,7 @@ public sealed class FilenameHintsParser
 
     private static string StripDirectory(string name)
     {
-        var slash = name.LastIndexOf('\\');
+        var slash = Math.Max(name.LastIndexOf('\\'), name.LastIndexOf('/'));
         return slash >= 0 ? name[(slash + 1)..] : name;
     }
 

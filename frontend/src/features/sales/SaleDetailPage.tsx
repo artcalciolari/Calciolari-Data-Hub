@@ -32,33 +32,27 @@ export function SaleDetailPage() {
         {sale.items.length === 0 ? (
           <div className="empty-state">Sem itens publicados.</div>
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Produto</th>
-                  <th className="num">Qtd.</th>
-                  <th className="num">Preço</th>
-                  <th className="num">Desc.</th>
-                  <th className="num">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sale.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.sourceRecordIndex + 1}</td>
-                    <td>
-                      <Link to={`/products/${item.productId}`}>{item.productExternalId} · {item.productName}</Link>
-                    </td>
-                    <td className="num">{formatQuantity(item.quantity)}</td>
-                    <td className="num">{formatMoney(item.unitPrice)}</td>
-                    <td className="num">{formatPercent(item.discountPercentage)}</td>
-                    <td className="num">{formatMoney(item.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="sale-items">
+            {sale.items.map((item) => (
+              <article key={item.id} className="sale-item-card">
+                <div className="sale-item-top">
+                  <Link to={`/products/${item.productId}`}>{item.productExternalId} · {item.productName}</Link>
+                  <strong>{formatMoney(item.total)}</strong>
+                </div>
+                <p className="muted">
+                  {formatQuantity(item.quantity)} · {formatMoney(item.unitPrice)}
+                  {item.discountPercentage ? ` · desc. ${formatPercent(item.discountPercentage)}` : ''}
+                </p>
+                {(item.previousStock != null || item.resultingStock != null) && (
+                  <details>
+                    <summary>Estoque</summary>
+                    <p className="muted">
+                      Anterior {formatQuantity(item.previousStock)} → posterior {formatQuantity(item.resultingStock)}
+                    </p>
+                  </details>
+                )}
+              </article>
+            ))}
           </div>
         )}
       </section>
