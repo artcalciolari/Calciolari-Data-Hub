@@ -271,6 +271,9 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
         using var bad = Authed("viewer", "wrong");
         Assert.Equal(HttpStatusCode.Unauthorized, (await bad.GetAsync("/api/products")).StatusCode);
 
+        using var unknown = Authed("nobody", "v");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await unknown.GetAsync("/api/products")).StatusCode);
+
         using var bearer = new HttpClient { BaseAddress = _client.BaseAddress };
         bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "nope");
         Assert.Equal(HttpStatusCode.Unauthorized, (await bearer.GetAsync("/api/products")).StatusCode);
