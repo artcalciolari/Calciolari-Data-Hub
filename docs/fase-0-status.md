@@ -13,4 +13,4 @@
 
 ## Parser
 
-A lógica binária do PoC foi portada para Java e as regressões §13.2 de A e B passam.
+A lógica binária do PoC foi portada para C# (`InterPdvQrpParser`) e as regressões §13.2 de A e B passam.

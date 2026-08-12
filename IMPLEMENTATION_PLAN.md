@@ -1,6 +1,6 @@
 # Plano de implementação — Calciolari Data Hub MVP
 
-> Documento de execução para o Cursor. Este arquivo é somente um plano; nenhum código do MVP foi implementado.
+> Documento histórico de execução. O backend do MVP é **C# / ASP.NET Core 10** (ver `docs/decisions/0004-csharp-backend.md` e `AGENTS.md`). A stack Java/Spring descrita abaixo não é mais a implementação corrente.
 
 ## 1. Situação atual do repositório
 

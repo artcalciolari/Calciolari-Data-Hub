@@ -1,14 +1,14 @@
-# Versões fixadas (Fase 0)
+# Versões fixadas
 
-Registradas em 09/08/2026 a partir da documentação oficial disponível na data.
+Registradas a partir da documentação oficial disponível em 12/08/2026.
 
 | Componente | Versão | Fonte |
 |---|---|---|
-| Java | 21 (LTS) | plano + runtime do ambiente |
-| Spring Boot | 4.1.0 | [start.spring.io](https://start.spring.io) (intervalo compatível `>=4.0.0`) / [releases](https://github.com/spring-projects/spring-boot/releases) |
-| Apache Maven (wrapper) | 3.9.16 | `.mvn/wrapper/maven-wrapper.properties` |
-| PostgreSQL | 18.4 | [Docker Hub `postgres`](https://hub.docker.com/_/postgres) (`postgres:18.4-alpine`) |
-| Node.js (frontend, Fase 4) | 22.x | toolchain do ambiente Cloud |
+| .NET / C# | 10.0 LTS (C# 14) | [Download .NET 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) — Active até 14/11/2028 |
+| ASP.NET Core | 10.0 | SDK `net10.0` / runtime 10.0.11 |
+| EF Core + Npgsql | 10.0.x | `Calciolari.DataHub.csproj` |
+| PostgreSQL | 18.4 (compose) / 16 (CI) | [Docker Hub `postgres`](https://hub.docker.com/_/postgres) |
+| Node.js (frontend) | 22.x | toolchain do ambiente Cloud |
 | npm | 10.x | bundled com Node 22 |
 
-Dependências de aplicação (JPA, Flyway, Web, Testcontainers, React/Vite) serão pinadas nos manifests correspondentes quando as fases 3–4 forem liberadas pelo gate do parser.
+O backend Java 21 + Spring Boot 4.1.0 foi substituído; ver ADR `docs/decisions/0004-csharp-backend.md`.

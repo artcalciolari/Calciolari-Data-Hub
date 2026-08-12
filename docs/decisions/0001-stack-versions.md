@@ -21,6 +21,6 @@ mínimo sem inventar o parser QRP.
 
 ## Consequências
 
-- Testes unitários do scaffold rodam sem Docker.
+- Testes unitários do scaffold rodavam sem Docker.
 - `InterPdvQrpParser` permanece sem implementação de formato até o PoC/fixtures.
-- Upgrade eventual de Spring Boot 4.x deve ser revisado quando Web/JPA forem adicionados.
+- **Superseded in part:** o backend de runtime é C# / ASP.NET Core 10 (ADR 0004). Este ADR permanece como registro da stack inicial Java.
