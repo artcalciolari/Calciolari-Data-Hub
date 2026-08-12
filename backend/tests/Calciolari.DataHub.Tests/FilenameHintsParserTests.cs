@@ -52,6 +52,7 @@ public sealed class FilenameHintsParserTests
         Assert.NotNull(_parser.Parse("folder/relatorio_20_07.QRP").SingleDateHint);
         Assert.NotNull(_parser.Parse("folder\\relatorio_20_07.QRP").SingleDateHint);
         Assert.NotNull(_parser.Parse("/relatorio_20_07.QRP").SingleDateHint);
+        Assert.True(_parser.Parse("relatorio_20_07.QRP/").IsEmpty);
         Assert.Null(_parser.Parse("AUDITORIA.QRP").ProductCodeHint);
     }
 

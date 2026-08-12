@@ -255,7 +255,7 @@ describe('ImportsPage', () => {
     const file = new File(['data'], 'test.qrp', { type: 'application/octet-stream' })
     fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
     fireEvent.click(screen.getByRole('button', { name: /Importar \(1\)/ }))
-    expect((await screen.findAllByText(/Arquivo importado com divergências/)).toHaveLength(2)
+    expect((await screen.findAllByText(/Arquivo importado com divergências/))).toHaveLength(2)
     expect(screen.getByText(/Já importado/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes' }))
     expect(await screen.findByText('job detail')).toBeInTheDocument()

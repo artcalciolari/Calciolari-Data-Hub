@@ -475,8 +475,8 @@ public sealed class IngestionCoverageTests : IDisposable
         Assert.Equal("41", summary.Files[0].ProductExternalId);
         Assert.NotNull(summary.Files[0].ParsedRevenue);
         Assert.Equal("VALID", summary.Files[0].QuantityValidationStatus);
-        Assert.Equal("52.986", summary.Files[0].SourceQuantity);
-        Assert.Equal("52.986", summary.Files[0].ParsedQuantity);
+        Assert.Equal(DecimalText.ToPlainString(52.986m), summary.Files[0].SourceQuantity);
+        Assert.Equal(DecimalText.ToPlainString(52.986m), summary.Files[0].ParsedQuantity);
         Assert.Throws<ApiException>(() => queries.GetFile(ingested.JobId, Guid.NewGuid()));
         Assert.Throws<ApiException>(() => queries.GetFile(Guid.NewGuid(), ingested.ImportFileId));
 
