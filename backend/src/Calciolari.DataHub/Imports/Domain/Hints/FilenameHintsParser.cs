@@ -110,8 +110,26 @@ public sealed class FilenameHintsParser
 
     private static string StripDirectory(string name)
     {
-        var slash = Math.Max(name.LastIndexOf('\\'), name.LastIndexOf('/'));
-        return slash >= 0 ? name[(slash + 1)..] : name;
+        for (var i = name.Length - 1; i >= 0; i--)
+        {
+            var c = name[i];
+            if (c is not '/' and not '\\')
+            {
+                continue;
+            }
+
+            var dateSlash = i > 0 && i + 1 < name.Length
+                && char.IsDigit(name[i - 1])
+                && char.IsDigit(name[i + 1]);
+            if (dateSlash)
+            {
+                continue;
+            }
+
+            return name[(i + 1)..];
+        }
+
+        return name;
     }
 
     private static string StripExtension(string basename)

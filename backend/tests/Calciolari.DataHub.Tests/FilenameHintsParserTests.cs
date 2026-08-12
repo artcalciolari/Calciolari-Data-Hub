@@ -48,8 +48,10 @@ public sealed class FilenameHintsParserTests
     [Fact]
     public void StripsWindowsDirectoryPrefix()
     {
-        Assert.NotNull(_parser.Parse("folder\\relatorio_20_07.QRP").SingleDateHint);
+        Assert.NotNull(_parser.Parse("folder/AUDITORIA 01/07-20/07.QRP").PeriodHint);
         Assert.NotNull(_parser.Parse("folder/relatorio_20_07.QRP").SingleDateHint);
+        Assert.NotNull(_parser.Parse("folder\\relatorio_20_07.QRP").SingleDateHint);
+        Assert.NotNull(_parser.Parse("/relatorio_20_07.QRP").SingleDateHint);
         Assert.Null(_parser.Parse("AUDITORIA.QRP").ProductCodeHint);
     }
 

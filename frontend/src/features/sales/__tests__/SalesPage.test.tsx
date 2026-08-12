@@ -92,6 +92,7 @@ describe('SalesPage', () => {
       page: 1,
       size: 50,
     })
+    expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
     const row = screen.getByRole('link', { name: '101' }).closest('tr')!
     fireEvent.keyDown(row, { key: 'Escape' })
     fireEvent.keyDown(row, { key: 'Enter' })

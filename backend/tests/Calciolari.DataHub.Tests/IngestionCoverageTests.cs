@@ -471,7 +471,7 @@ public sealed class IngestionCoverageTests : IDisposable
         _db.SaveChanges();
         var queries = new ImportQueryService(_db);
         var summary = queries.GetJob(ingested.JobId);
-        Assert.Equal("N", summary.Files[0].ProductName);
+        Assert.Equal("NAME", summary.Files[0].ProductName);
         Assert.Equal("41", summary.Files[0].ProductExternalId);
         Assert.NotNull(summary.Files[0].ParsedRevenue);
         Assert.Equal("VALID", summary.Files[0].QuantityValidationStatus);

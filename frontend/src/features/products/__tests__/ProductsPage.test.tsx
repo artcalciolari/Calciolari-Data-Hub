@@ -70,8 +70,10 @@ describe('ProductsPage', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
     expect(listProducts).toHaveBeenCalledWith({ q: undefined, page: 1, size: 50 })
+    expect(await screen.findByRole('link', { name: 'MOLHO' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Anterior' }))
     expect(listProducts).toHaveBeenCalledWith({ q: undefined, page: 0, size: 50 })
+    expect(await screen.findByRole('link', { name: 'MOLHO' })).toBeInTheDocument()
     const row = screen.getByRole('link', { name: 'MOLHO' }).closest('tr')!
     fireEvent.keyDown(row, { key: 'Escape' })
     fireEvent.keyDown(row, { key: 'Enter' })
