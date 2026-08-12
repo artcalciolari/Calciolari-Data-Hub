@@ -92,6 +92,14 @@ public sealed class SecurityAndOptionsTests
             Assert.True(prod.SecurityEnabled);
             Assert.True(prod.SecurityRequireEnabled);
 
+            var prodCorsConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=h;Database=d;Username=u;Password=p",
+                ["DataHub:CorsAllowedOrigins"] = "https://app.example"
+            }).Build();
+            var prodCors = AppHost.BindOptions(prodCorsConfig, "Production");
+            Assert.Equal("https://app.example", prodCors.CorsAllowedOrigins);
+
             Environment.SetEnvironmentVariable("DATAHUB_CONNECTION_STRING", "Host=env");
             Environment.SetEnvironmentVariable("DATAHUB_RAW_STORAGE_ROOT", "/env/raw");
             Environment.SetEnvironmentVariable("DATAHUB_IMPORTS_MAX_FILES", "9");

@@ -6,13 +6,13 @@
 
 Calciolari Data Hub MVP: InterPDV `.QRP` import, PostgreSQL canonical store, React dashboard.
 
-- **Backend** — C# / ASP.NET Core 8 (`backend/Calciolari.DataHub.sln`). EF Core + Npgsql, SQL migration `V1__import_and_canonical.sql`, Coverlet **100% line+branch** (QRP/EMF parser namespace excluded from the hard gate). Real PostgreSQL only (never an in-memory stand-in).
+- **Backend** — C# / ASP.NET Core 10 (`backend/Calciolari.DataHub.sln`). EF Core + Npgsql, SQL migration `V1__import_and_canonical.sql`, Coverlet **100% line+branch** (QRP/EMF parser namespace excluded from the hard gate). Real PostgreSQL only (never an in-memory stand-in).
 - **Frontend** — React + TypeScript + Vite PWA (`frontend/package.json`), mobile-first dashboard/audit UI. Playwright for E2E.
 - **PostgreSQL** — canonical data store via `compose.yaml`. Raw `.QRP` bytes stored on the local filesystem.
 
 Do **not** invent the QRP binary format. Parser behavior is locked by fixture A/B golden tests.
 
-Base VM toolchains: **.NET 8** (install the SDK if missing), **Node 22 / npm**, **Python 3.12**, **Java 21** (unused by the current backend). Not preinstalled: **Docker**, **`psql`**.
+Base VM toolchains: **.NET 10** (install the SDK if missing), **Node 22 / npm**, **Python 3.12**, **Java 21** (unused by the current backend). Not preinstalled: **Docker**, **`psql`**.
 
 ### How to set up / run
 

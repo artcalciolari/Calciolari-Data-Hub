@@ -356,12 +356,14 @@ public sealed class ImportIngestionService
                 file.DuplicateOfImportFileId = original.Id;
             }
 
-            if (latest.Status is "PENDING" or "PROCESSING")
+            if (latest.Status == "PENDING")
             {
-                file.Status = "PROCESSING";
-                _db.ImportFiles.Add(file);
-                _db.SaveChanges();
-                return new IngestContext(job, file, artifact, latest, true, published);
+                return SkipInFlight(job, file, artifact, latest, published);
+            }
+
+            if (latest.Status == "PROCESSING")
+            {
+                return SkipInFlight(job, file, artifact, latest, published);
             }
 
             if (latest.Status is "VALID" or "WARNING")
@@ -417,6 +419,19 @@ public sealed class ImportIngestionService
         _db.ImportFiles.Add(file);
         _db.SaveChanges();
         return new IngestContext(job, file, artifact, attempt, false, false);
+    }
+
+    private IngestContext SkipInFlight(
+        ImportJobEntity job,
+        ImportFileEntity file,
+        RawArtifactEntity artifact,
+        ParseAttemptEntity latest,
+        bool published)
+    {
+        file.Status = "PROCESSING";
+        _db.ImportFiles.Add(file);
+        _db.SaveChanges();
+        return new IngestContext(job, file, artifact, latest, true, published);
     }
 
     private ImportedFileResult FinalizeParse(IngestContext ctx, ParsedImport parsed)

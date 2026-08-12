@@ -23,4 +23,4 @@ mínimo sem inventar o parser QRP.
 
 - Testes unitários do scaffold rodavam sem Docker.
 - `InterPdvQrpParser` permanece sem implementação de formato até o PoC/fixtures.
-- **Superseded in part:** o backend de runtime é C# / ASP.NET Core 8 (ADR 0004). Este ADR permanece como registro da stack inicial Java.
+- **Superseded in part:** o backend de runtime é C# / ASP.NET Core 10 (ADR 0004). Este ADR permanece como registro da stack inicial Java.

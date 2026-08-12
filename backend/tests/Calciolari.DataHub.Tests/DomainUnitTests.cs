@@ -39,6 +39,9 @@ public sealed class DomainUnitTests
     {
         var issue = ParseIssue.Create("X", IssueSeverity.Info, IssueStage.Layout, null, "msg");
         Assert.Equal(SourceLocator.Empty, issue.SourceLocator);
+        var located = ParseIssue.Create(
+            "Y", IssueSeverity.Warning, IssueStage.Layout, new SourceLocator(1, 2, 3, "d"), "located");
+        Assert.Equal(1, located.SourceLocator.Page);
         Assert.Throws<ArgumentNullException>(() => ParseIssue.Create(null!, IssueSeverity.Info, IssueStage.Layout, null, "m"));
         Assert.Throws<ArgumentNullException>(() => ParseIssue.Create("X", IssueSeverity.Info, IssueStage.Layout, null, null!));
     }

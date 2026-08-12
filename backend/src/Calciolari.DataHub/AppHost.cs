@@ -8,6 +8,7 @@ using Calciolari.DataHub.Shared.Api;
 using Calciolari.DataHub.Shared.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 
@@ -70,16 +71,10 @@ public static class AppHost
                 : null;
         });
 
-        var origins = options.OriginList();
-        if (origins.Count > 0)
+        var origins = options.OriginList().ToArray();
+        if (origins.Length > 0)
         {
-            builder.Services.AddCors(cors => cors.AddPolicy("datahub", policy =>
-                policy.WithOrigins(origins.ToArray())
-                    .AllowAnyHeader()
-                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                    .WithExposedHeaders("Location")
-                    .AllowCredentials()
-                    .SetPreflightMaxAge(TimeSpan.FromSeconds(3600))));
+            ConfigureCors(builder.Services, origins);
         }
 
         configure?.Invoke(builder);
@@ -102,7 +97,7 @@ public static class AppHost
             await next();
         });
 
-        if (origins.Count > 0)
+        if (origins.Length > 0)
         {
             app.UseCors("datahub");
         }
@@ -222,6 +217,21 @@ public static class AppHost
         var host = colon >= 0 ? hostPort[..colon] : hostPort;
         var port = colon >= 0 ? hostPort[(colon + 1)..] : "5432";
         return $"Host={host};Port={port};Database={db};Username={user ?? "datahub"};Password={password ?? "change-me"}";
+    }
+
+    internal static void ConfigureCors(IServiceCollection services, string[] origins)
+    {
+        var policy = new CorsPolicyBuilder()
+            .WithOrigins(origins)
+            .AllowAnyHeader()
+            .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            .WithExposedHeaders("Location")
+            .AllowCredentials()
+            .SetPreflightMaxAge(TimeSpan.FromSeconds(3600))
+            .Build();
+        services.AddCors();
+        services.Configure<CorsOptions>(options =>
+            options.AddPolicy("datahub", policy));
     }
 
     private static string? FirstNonEmpty(params string?[] values) =>

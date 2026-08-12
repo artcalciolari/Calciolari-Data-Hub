@@ -122,6 +122,10 @@ public sealed class IngestionCoverageTests : IDisposable
         var retried = _svc.Ingest(new MemoryStream([4]), "d2.qrp");
         Assert.True(retried.Deduplicated);
         Assert.Equal("FAILED", retried.ParseStatus);
+        MarkAllFilesDeduplicated(failed.RawArtifactId);
+        var retriedNoOriginal = _svc.Ingest(new MemoryStream([4]), "d3.qrp");
+        Assert.True(retriedNoOriginal.Deduplicated);
+        Assert.Null(_db.ImportFiles.AsNoTracking().Single(f => f.Id == retriedNoOriginal.ImportFileId).DuplicateOfImportFileId);
 
         _parser.Default = _ => ValidImport(null, null, [Out("Z", 1m, 1m, 1m)]);
         var noProduct = _svc.Ingest(new MemoryStream([5]), "e.qrp");
@@ -138,6 +142,11 @@ public sealed class IngestionCoverageTests : IDisposable
         _db.SaveChanges();
         var skippedProcessing = _svc.Ingest(new MemoryStream(processingBytes), "p2.qrp");
         Assert.Equal("PROCESSING", skippedProcessing.FileStatus);
+
+        attempt.Status = "PENDING";
+        _db.SaveChanges();
+        var skippedPending = _svc.Ingest(new MemoryStream(processingBytes), "p2-pending.qrp");
+        Assert.Equal("PROCESSING", skippedPending.FileStatus);
 
         MarkAllFilesDeduplicated(processing.RawArtifactId);
         var skippedNoOriginal = _svc.Ingest(new MemoryStream(processingBytes), "p3.qrp");

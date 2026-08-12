@@ -1,12 +1,12 @@
 # Versões fixadas
 
-Registradas a partir da documentação oficial disponível na data da migração C# (12/08/2026) e da Fase 0 original.
+Registradas a partir da documentação oficial disponível em 12/08/2026.
 
 | Componente | Versão | Fonte |
 |---|---|---|
-| .NET / C# | 8.0 LTS | runtime do backend ASP.NET Core |
-| ASP.NET Core | 8.0 | SDK `net8.0` |
-| EF Core + Npgsql | 8.0.x | `Calciolari.DataHub.csproj` |
+| .NET / C# | 10.0 LTS (C# 14) | [Download .NET 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) — Active até 14/11/2028 |
+| ASP.NET Core | 10.0 | SDK `net10.0` / runtime 10.0.11 |
+| EF Core + Npgsql | 10.0.x | `Calciolari.DataHub.csproj` |
 | PostgreSQL | 18.4 (compose) / 16 (CI) | [Docker Hub `postgres`](https://hub.docker.com/_/postgres) |
 | Node.js (frontend) | 22.x | toolchain do ambiente Cloud |
 | npm | 10.x | bundled com Node 22 |
