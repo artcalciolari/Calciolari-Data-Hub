@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Calciolari.DataHub.Persistence;
 using Calciolari.DataHub.Shared.Api;
 using Microsoft.EntityFrameworkCore;
@@ -86,17 +85,70 @@ public sealed class ImportQueryService
         var files = _db.ImportFiles.AsNoTracking()
             .Where(f => f.ImportJobId == job.Id)
             .OrderBy(f => f.CreatedAt)
-            .Select(f => new ImportFileSummary(
-                f.Id,
-                f.OriginalFilename,
-                f.Status,
-                f.Deduplicated,
-                f.DuplicateOfImportFileId,
-                f.ParseAttemptId,
-                f.CreatedAt,
-                f.CompletedAt))
             .ToList();
-        return new ImportJobResponse(job.Id, job.Status, job.CreatedAt, job.CompletedAt, files);
+        return new ImportJobResponse(job.Id, job.Status, job.CreatedAt, job.CompletedAt, files.Select(ToFileSummary).ToList());
+    }
+
+    private ImportFileSummary ToFileSummary(Persistence.Entities.ImportFileEntity file)
+    {
+        var attempt = file.ParseAttemptId is null
+            ? null
+            : _db.ParseAttempts.AsNoTracking().SingleOrDefault(a => a.Id == file.ParseAttemptId);
+        string? productName = null;
+        string? productExternalId = null;
+        string? parsedQuantity = null;
+        string? parsedRevenue = null;
+        string? sourceQuantity = null;
+        string? quantityValidationStatus = null;
+        if (attempt is not null)
+        {
+            var sample = _db.ParsedMovements.AsNoTracking()
+                .Where(m => m.ParseAttemptId == attempt.Id && m.ProductName != null)
+                .OrderBy(m => m.SourceRecordIndex)
+                .Select(m => new { m.ProductName, m.ExternalProductId })
+                .FirstOrDefault();
+            if (sample is not null)
+            {
+                productName = sample.ProductName;
+                productExternalId = sample.ExternalProductId;
+            }
+
+            var qty = _db.ValidationResults.AsNoTracking()
+                .Where(v => v.ParseAttemptId == attempt.Id
+                            && (v.Code == "SOURCE_QUANTITY_MATCH" || v.Code == "SOURCE_QUANTITY_MISMATCH"))
+                .OrderBy(v => v.Code)
+                .FirstOrDefault();
+            if (qty is not null)
+            {
+                sourceQuantity = DecimalText.ToPlainString(qty.SourceValue);
+                parsedQuantity = DecimalText.ToPlainString(qty.CalculatedValue);
+                quantityValidationStatus = qty.Status;
+            }
+
+            var revenue = _db.ParsedMovements.AsNoTracking()
+                .Where(m => m.ParseAttemptId == attempt.Id && m.Direction == "OUT" && m.Total != null)
+                .Select(m => (decimal?)m.Total)
+                .Sum();
+            parsedRevenue = DecimalText.ToPlainString(revenue);
+        }
+
+        return new ImportFileSummary(
+            file.Id,
+            file.OriginalFilename,
+            file.Status,
+            file.Deduplicated,
+            file.DuplicateOfImportFileId,
+            file.ParseAttemptId,
+            file.CreatedAt,
+            file.CompletedAt,
+            attempt?.RecordsFound,
+            attempt?.Status,
+            productName,
+            productExternalId,
+            parsedQuantity,
+            parsedRevenue,
+            sourceQuantity,
+            quantityValidationStatus);
     }
 }
 
@@ -115,7 +167,15 @@ public sealed record ImportFileSummary(
     Guid? DuplicateOfImportFileId,
     Guid? ParseAttemptId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    int? RecordsFound = null,
+    string? ParseStatus = null,
+    string? ProductName = null,
+    string? ProductExternalId = null,
+    string? ParsedQuantity = null,
+    string? ParsedRevenue = null,
+    string? SourceQuantity = null,
+    string? QuantityValidationStatus = null);
 
 public sealed record ImportFileDetail(
     Guid Id,
@@ -147,11 +207,6 @@ public sealed record ValidationDto(
     string? Tolerance,
     string RuleVersion,
     string? SourceLocator);
-
-public sealed record ImportAcceptedResponse(
-    Guid JobId,
-    string Status,
-    IReadOnlyList<ImportFileSummary> Files);
 
 public sealed record ReprocessResponse(
     Guid ImportFileId,

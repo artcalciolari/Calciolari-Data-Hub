@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Calciolari.DataHub.Imports.Domain.Hints;
+using Calciolari.DataHub.Shared.Provenance;
 
 namespace Calciolari.DataHub.Imports.Application;
 
@@ -22,7 +23,8 @@ public static class FilenameHintsJson
         }
         catch (Exception)
         {
-            return "{\"originalFilename\":\"" + hints.OriginalFilename.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"}";
+            return "{\"originalFilename\":\"" + hints.OriginalFilename.Replace("\"", "\\\"", StringComparison.Ordinal)
+                + "\",\"provenance\":\"" + ProvenanceKindNames.InferredData + "\"}";
         }
     }
 
@@ -46,6 +48,8 @@ public static class FilenameHintsJson
     private static FilenameHintsDto ToDto(FilenameHints hints) =>
         new(
             hints.OriginalFilename,
+            ProvenanceKindNames.InferredData,
+            hints.ProductCodeHint,
             hints.PeriodHint is null
                 ? null
                 : new IncompleteDateRangeDto(
@@ -58,6 +62,8 @@ public static class FilenameHintsJson
 
     private sealed record FilenameHintsDto(
         string OriginalFilename,
+        string Provenance,
+        string? ProductCodeHint,
         IncompleteDateRangeDto? PeriodHint,
         IncompleteDateDto? SingleDateHint);
 

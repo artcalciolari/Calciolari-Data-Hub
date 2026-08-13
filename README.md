@@ -6,9 +6,9 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 ## Estado atual
 
 - Parser InterPDV QRP (PoC port) + Fixtures A/B
-- Persistência PostgreSQL (EF Core + SQL `V1`), raw storage, dedup
-- API REST: imports, products, sales, dashboard
-- Frontend React + TypeScript mobile-first (Resumo, Vendas, Produtos, Importar)
+- Backend **C# / ASP.NET Core 10** (EF Core + SQL versionado `schema_history` / `V1`), raw storage, dedup, worker assíncrono
+- API REST: imports (`202` + poll), products, sales, dashboard; OpenAPI em `/openapi/v1.json`
+- Frontend React + TypeScript **strict** mobile-first (Resumo, Vendas, Produtos, Importar, `/login`)
 - PWA instalável (app shell only) + segurança operacional / backup
 - Reprocessamento admin (`POST /api/imports/files/{id}/reprocess`)
 
@@ -34,16 +34,16 @@ npm install
 npm run dev        # http://127.0.0.1:5173 (proxy /api -> :8080)
 npm run build      # gera SW + manifest
 npm run preview    # serve o build (PWA instalável em localhost)
-npm run test       # vitest
-npm run typecheck  # tsc -b
-npx playwright test  # E2E (mobile + desktop) com backend em :8080
+npm run ci         # typecheck + oxlint + vitest 100%
+npx playwright test  # E2E (mobile + desktop); API em :8080 já semeada (scripts/seed-e2e.sh)
 ```
 
 ## Infra
 
 ```bash
 cp .env.example .env
-docker compose up -d   # quando Docker estiver disponível
+docker compose up -d   # PostgreSQL 16 em :5432 (quando Docker estiver disponível)
+# bytes brutos: DATAHUB_RAW_STORAGE_ROOT (default ./data/raw-storage no host)
 ```
 
 ## Backup / restore
@@ -60,7 +60,7 @@ Detalhes em `docs/ops.md`.
 ## Segurança (resumo)
 
 - Default local: API aberta — **somente em rede controlada**.
-- Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`).
+- Perfil `production`: autenticação HTTP Basic obrigatória (roles `VIEWER` / `IMPORTER` / `ADMIN`). A PWA usa `/login` (credenciais só em `sessionStorage`).
 - Não exponha na internet sem autenticação. CORS vazio = same-origin.
 
 ## Limitações
@@ -70,3 +70,4 @@ Riscos residuais e fora de escopo: `docs/residuals.md` e plano §18.
 ## Coverage / CI
 
 Gates de 100% (Coverlet + Vitest): `docs/coverage.md` e `.github/workflows/ci.yml`.
+Playwright (Chromium mobile+desktop, axe no dashboard, fixtures A/B semeados via API) roda no job `e2e` do mesmo workflow.

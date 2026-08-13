@@ -46,6 +46,7 @@ describe('ProductDetailPage', () => {
     renderPage()
     expect(await screen.findByRole('heading', { name: 'MOLHO' })).toBeInTheDocument()
     expect(screen.getByText(/Código 41/)).toBeInTheDocument()
+    expect(screen.getByText(/Primeira movimentação/)).toBeInTheDocument()
   })
 
   it('covers loading and error branches', async () => {

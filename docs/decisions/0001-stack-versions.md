@@ -18,6 +18,7 @@ mínimo sem inventar o parser QRP.
   Web/JPA/Flyway/Actuator entram nas Fases 3A/3B após o gate do parser.
 - Binários `.QRP` ficam fora do Git por padrão (`.gitignore`); o manifesto versiona
   expectativas e, quando disponíveis, SHA-256.
+- **Atualização:** `compose.yaml` e CI usam PostgreSQL **16** (ver `docs/versions.md` e ADR 0004). Este ADR permanece como registro da stack inicial Java.
 
 ## Consequências
 

@@ -12,5 +12,6 @@ describe('router', () => {
     expect(paths).toContain('products')
     expect(paths).toContain('sales')
     expect(paths).toContain('*')
+    expect(router.routes.some((route) => route.path === '/login')).toBe(true)
   })
 })

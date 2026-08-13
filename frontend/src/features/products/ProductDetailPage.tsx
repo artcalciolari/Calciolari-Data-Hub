@@ -1,8 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import { getDashboard, getProduct } from '@/shared/api'
-import { formatMoney, formatQuantity, formatInteger } from '@/shared/format'
+import { formatDateTime, formatMoney, formatQuantity, formatInteger } from '@/shared/format'
 import { Icon } from '@/shared/icons'
 import { StateMessage } from '@/shared/StateMessage'
+import { DailyBars } from '@/shared/DailyBars'
 import { useAsync } from '@/shared/useAsync'
 
 export function ProductDetailPage() {
@@ -32,6 +33,10 @@ export function ProductDetailPage() {
         <div className="card"><div className="k">Itens</div><div className="v">{formatInteger(dashboard.data.itemCount)}</div></div>
       </section>
 
+      <p className="muted">
+        Primeira movimentação {formatDateTime(dashboard.data.firstMovementAt)} · última {formatDateTime(dashboard.data.lastMovementAt)}
+      </p>
+
       <section className="section">
         <div className="section-head">
           <h2>Diário</h2>
@@ -40,19 +45,13 @@ export function ProductDetailPage() {
         {dashboard.data.daily.length === 0 ? (
           <div className="empty-state">Sem série publicada para este produto.</div>
         ) : (
-          <div className="bars" role="img" aria-label="Série diária do produto">
-            {dashboard.data.daily.map((point) => {
-              const daily = dashboard.data!.daily
-              const max = Math.max(...daily.map((p) => Number(p.quantity)), 0.001)
-              const height = Math.max(4, (Number(point.quantity) / max) * 110)
-              return (
-                <div key={point.date} className="bar-wrap">
-                  <div className="bar" style={{ height }} title={`${point.date}: ${formatQuantity(point.quantity)}`} />
-                  <div className="bar-label">{point.date.slice(8, 10)}/{point.date.slice(5, 7)}</div>
-                </div>
-              )
-            })}
-          </div>
+          <DailyBars
+            points={dashboard.data.daily}
+            metric="quantity"
+            format={formatQuantity}
+            maxHeight={110}
+            ariaLabel="Série diária do produto"
+          />
         )}
       </section>
     </div>

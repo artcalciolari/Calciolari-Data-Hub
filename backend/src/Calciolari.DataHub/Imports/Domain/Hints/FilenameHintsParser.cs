@@ -24,20 +24,31 @@ public sealed class FilenameHintsParser
         @"(?<!\d)(\d{2})/(\d{2})(?!\d)",
         RegexOptions.Compiled);
 
+    private static readonly Regex ProductCode = new(
+        @"AUDITORIA\s+(\d+)\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public FilenameHints Parse(string? originalFilename)
     {
         var preserved = originalFilename ?? string.Empty;
         var basename = StripDirectory(preserved);
         var stem = StripExtension(basename);
+        var productCodeHint = MatchProductCode(stem);
 
         var period = MatchPeriod(stem);
         if (period is not null)
         {
-            return new FilenameHints(preserved, period, null);
+            return new FilenameHints(preserved, period, null, productCodeHint);
         }
 
         var single = MatchSingle(stem);
-        return new FilenameHints(preserved, null, single);
+        return new FilenameHints(preserved, null, single, productCodeHint);
+    }
+
+    private static string? MatchProductCode(string stem)
+    {
+        var match = ProductCode.Match(stem);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     private static IncompleteDateRange? MatchPeriod(string stem)
@@ -99,8 +110,26 @@ public sealed class FilenameHintsParser
 
     private static string StripDirectory(string name)
     {
-        var slash = name.LastIndexOf('\\');
-        return slash >= 0 ? name[(slash + 1)..] : name;
+        for (var i = name.Length - 1; i >= 0; i--)
+        {
+            var c = name[i];
+            if (c is not '/' and not '\\')
+            {
+                continue;
+            }
+
+            var dateSlash = i > 0 && i + 1 < name.Length
+                && char.IsDigit(name[i - 1])
+                && char.IsDigit(name[i + 1]);
+            if (dateSlash)
+            {
+                continue;
+            }
+
+            return name[(i + 1)..];
+        }
+
+        return name;
     }
 
     private static string StripExtension(string basename)

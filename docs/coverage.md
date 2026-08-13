@@ -25,7 +25,7 @@ dotnet test Calciolari.DataHub.sln
 
 ### QRP / EMF package
 
-`Calciolari.DataHub.Imports.Infrastructure.InterPdv.Qrp` is **excluded from the hard 100% gate** (still compiled, tested, and present in the assembly). `Program.cs` is also excluded.
+`Calciolari.DataHub.Imports.Infrastructure.InterPdv.Qrp` is **excluded from the hard 100% gate** (still compiled, tested, and present in the assembly). `Program.cs` and the OpenAPI source-generator file `OpenApiXmlCommentSupport.generated.cs` are also excluded.
 
 Reason: binary EMF/QRP opcode branches are dense; acceptance is enforced by fixture A/B golden tests plus dedicated edge unit tests. Do not invent undocumented format variants just to paint branches.
 
@@ -36,4 +36,6 @@ To inspect QRP coverage locally without the exclude, temporarily remove the Cove
 ```bash
 cd backend && dotnet test Calciolari.DataHub.sln
 cd frontend && npm ci && npm run ci
+# E2E (API already running on :8080):
+./scripts/seed-e2e.sh && cd frontend && npx playwright test
 ```

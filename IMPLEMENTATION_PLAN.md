@@ -1,6 +1,6 @@
 # Plano de implementação — Calciolari Data Hub MVP
 
-> Documento histórico de execução. O backend do MVP é **C# / ASP.NET Core 10** (ver `docs/decisions/0004-csharp-backend.md` e `AGENTS.md`). A stack Java/Spring descrita abaixo não é mais a implementação corrente.
+> Documento histórico de execução. O backend do MVP é **C# / ASP.NET Core 10** (ver `docs/decisions/0004-csharp-backend.md` e `AGENTS.md`). Trechos Java/Spring abaixo são histórico: ignore-os e implemente o equivalente em C#. Não há backend Java neste repositório.
 
 ## 1. Situação atual do repositório
 

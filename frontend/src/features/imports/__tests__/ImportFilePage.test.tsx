@@ -69,7 +69,7 @@ describe('ImportFilePage', () => {
   it('renders file metadata and validations', async () => {
     renderPage()
     expect(await screen.findByRole('heading', { name: 'export.qrp' })).toBeInTheDocument()
-    expect(screen.getByText(/SHA-256 abc123def456/)).toBeInTheDocument()
+    expect(screen.getByText(/Pistas do nome do arquivo/)).toBeInTheDocument()
     expect(screen.getByText('qrp')).toBeInTheDocument()
     expect(screen.getByText('TOTAL')).toBeInTheDocument()
     expect(screen.getByText('Válido')).toBeInTheDocument()

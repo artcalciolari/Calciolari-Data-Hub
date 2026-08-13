@@ -7,10 +7,12 @@ namespace Calciolari.DataHub.Imports.Domain.Hints;
 public sealed record FilenameHints(
     string OriginalFilename,
     IncompleteDateRange? PeriodHint,
-    IncompleteDate? SingleDateHint)
+    IncompleteDate? SingleDateHint,
+    string? ProductCodeHint = null)
 {
     public static FilenameHints Empty(string? originalFilename) =>
-        new(originalFilename ?? string.Empty, null, null);
+        new(originalFilename ?? string.Empty, null, null, null);
 
-    public bool IsEmpty => PeriodHint is null && SingleDateHint is null;
+    public bool IsEmpty =>
+        PeriodHint is null && SingleDateHint is null && string.IsNullOrWhiteSpace(ProductCodeHint);
 }

@@ -5,6 +5,7 @@ describe('format', () => {
   it('formats money as BRL pt-BR without float drift', () => {
     expect(formatMoney('3013.07')).toMatch(/3\.013,07/)
     expect(formatMoney('21.78')).toMatch(/21,78/)
+    expect(formatMoney('-1.5')).toMatch(/R\$ -1,50/)
     expect(formatMoney(null)).toBe('—')
     expect(formatMoney('')).toBe('—')
   })
@@ -12,6 +13,9 @@ describe('format', () => {
   it('formats quantity with up to 3 decimals', () => {
     expect(formatQuantity('52.986')).toMatch(/52,986/)
     expect(formatQuantity('0.416')).toMatch(/0,416/)
+    expect(formatQuantity('1000')).toMatch(/1\.000/)
+    expect(formatQuantity('10.500')).toMatch(/10,5/)
+    expect(formatQuantity('-1.25')).toMatch(/-1,25/)
     expect(formatQuantity(null)).toBe('—')
   })
 
@@ -37,10 +41,13 @@ describe('format', () => {
 
   it('formats integers with pt-BR grouping', () => {
     expect(formatInteger(1234)).toMatch(/1\.234/)
+    expect(formatInteger(-12)).toMatch(/-12/)
   })
 
   it('formats discount percentage as integer percent', () => {
     expect(formatPercent('8')).toBe('8%')
+    expect(formatPercent('8.00')).toBe('8%')
+    expect(formatPercent('8.50')).toBe('8.5%')
     expect(formatPercent(undefined)).toBe('—')
   })
 })

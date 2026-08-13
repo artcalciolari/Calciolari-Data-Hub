@@ -24,6 +24,7 @@ const dashboardPayload = {
   topProducts: [
     { productId: 'p1', name: 'MOLHO POMODORO', externalId: '41', quantity: '52.986', revenue: '3013.07' },
     { productId: 'p2', name: 'OUTRO', externalId: '42', quantity: '1', revenue: '10' },
+    { productId: 'p3', name: 'SEM TOTAL', externalId: '43', quantity: '1', revenue: '' },
   ],
 }
 
@@ -47,6 +48,7 @@ function renderPage() {
 
 describe('DashboardPage', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     vi.mocked(getDashboard).mockResolvedValue(dashboardPayload)
     vi.mocked(listSales).mockResolvedValue(salesPayload)
   })
@@ -56,12 +58,12 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
     expect(screen.getByText(/3\.705,88/)).toBeInTheDocument()
     expect(screen.getByText(/100 vendas · ticket médio/)).toBeInTheDocument()
-
+    expect(screen.getByRole('heading', { name: 'Produto em destaque' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Evolução diária' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Top produtos' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Vendas recentes' })).toBeInTheDocument()
-
-    expect(screen.getByRole('link', { name: /MOLHO POMODORO/ })).toHaveAttribute('href', '/products/p1')
+    expect(screen.getByRole('link', { name: 'Ver vendas' })).toHaveAttribute('href', '/sales')
+    expect(screen.getAllByRole('link', { name: /MOLHO POMODORO/ })[0]).toHaveAttribute('href', '/products/p1')
     expect(screen.getByRole('link', { name: /#101/ })).toHaveAttribute('href', '/sales/s1')
   })
 
@@ -81,7 +83,7 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('Carregando resumo')).toBeInTheDocument()
   })
 
-  it('shows error states for dashboard and recent sales', async () => {
+  it('shows error states for dashboard and recent sales independently', async () => {
     vi.mocked(getDashboard).mockRejectedValue(new Error('dash fail'))
     renderPage()
     expect(await screen.findByText('dash fail')).toBeInTheDocument()
@@ -89,6 +91,7 @@ describe('DashboardPage', () => {
     vi.mocked(getDashboard).mockResolvedValue(dashboardPayload)
     vi.mocked(listSales).mockRejectedValue(new Error('recent fail'))
     renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
     expect(await screen.findByText('recent fail')).toBeInTheDocument()
   })
 
@@ -98,7 +101,7 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Nenhum dado disponível')).toBeInTheDocument()
   })
 
-  it('renders empty sections and null average ticket', async () => {
+  it('renders empty sections, null average ticket and date filter', async () => {
     vi.mocked(getDashboard).mockResolvedValue({
       ...dashboardPayload,
       averageTicket: null,
@@ -111,5 +114,22 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Nenhum produto publicado ainda.')).toBeInTheDocument()
     expect(screen.getByText('Nenhuma venda publicada ainda.')).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-07-01T00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-07-31T23:59' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
+  })
+
+  it('restores persisted date filters', async () => {
+    sessionStorage.setItem('datahub.filters.dashboard', JSON.stringify({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' }))
+    renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
+    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
+  })
+
+  it('shows recent sales loading state', async () => {
+    vi.mocked(listSales).mockImplementation(() => new Promise(() => {}))
+    renderPage()
+    expect(await screen.findByText('Carregando vendas…')).toBeInTheDocument()
   })
 })

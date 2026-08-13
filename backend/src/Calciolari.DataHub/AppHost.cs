@@ -44,7 +44,13 @@ public static class AppHost
             new InterPdvParsedImportValidator(),
             options.ParserMaxBytes));
         builder.Services.AddSingleton<FilenameHintsParser>();
+        builder.Services.AddSingleton<IImportWorkQueue, ImportWorkQueue>();
+        builder.Services.AddSingleton<ImportMetrics>();
+        builder.Services.Configure<ImportWorkerOptions>(_ => { });
         builder.Services.AddScoped<ImportIngestionService>();
+        builder.Services.AddScoped<IImportFileProcessor>(sp => sp.GetRequiredService<ImportIngestionService>());
+        builder.Services.AddScoped<IRawStorageReconciler, RawStorageReconciler>();
+        builder.Services.AddHostedService<ImportParseWorker>();
         builder.Services.AddScoped<ImportQueryService>();
         builder.Services.AddScoped<Catalog.Application.ProductQueryService>();
         builder.Services.AddScoped<Sales.Application.SaleQueryService>();
@@ -58,6 +64,7 @@ public static class AppHost
                 json.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never;
             });
         builder.Services.AddProblemDetails();
+        builder.Services.AddOpenApi();
 
         builder.Services.AddAuthentication(BasicAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
@@ -105,6 +112,7 @@ public static class AppHost
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
+        app.MapOpenApi().AllowAnonymous();
 
         app.MapGet("/actuator/health", async (DataHubDbContext db) =>
             HealthJson(await db.Database.CanConnectAsync())).AllowAnonymous();
@@ -118,14 +126,16 @@ public static class AppHost
             app = new { name = "datahub", version = "0.0.1" }
         })).AllowAnonymous();
 
-        app.MapGet("/actuator/metrics", () => Results.Json(new { names = Array.Empty<string>() }))
+        app.MapGet("/actuator/metrics", (ImportMetrics metrics) => Results.Json(metrics.Snapshot()))
             .RequireAuthorization(new AuthorizeAttribute { Roles = "ADMIN" });
 
         return app;
     }
 
     internal static IResult HealthJson(bool canConnect) =>
-        Results.Json(new { status = canConnect ? "UP" : "DOWN" });
+        canConnect
+            ? Results.Json(new { status = "UP" })
+            : Results.Json(new { status = "DOWN" }, statusCode: StatusCodes.Status503ServiceUnavailable);
 
     internal static IResult ReadinessJson(bool canConnect) =>
         canConnect

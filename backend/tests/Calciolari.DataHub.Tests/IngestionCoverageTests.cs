@@ -130,8 +130,23 @@ public sealed class IngestionCoverageTests : IDisposable
         _parser.Default = _ => ValidImport(null, null, [Out("Z", 1m, 1m, 1m)]);
         var noProduct = _svc.Ingest(new MemoryStream([5]), "e.qrp");
         Assert.Equal("VALID", noProduct.ParseStatus);
+        Assert.False(noProduct.Published);
         var dupNoProduct = _svc.Ingest(new MemoryStream([5]), "e2.qrp");
         Assert.Equal("IMPORTED", dupNoProduct.FileStatus);
+
+        _parser.Default = _ => new ParsedImport(
+            "INTERPDV",
+            InterPdvQrpParser.ParserName,
+            InterPdvQrpParser.ParserVersion,
+            null,
+            null,
+            [Out("Z2", 1m, 1m, 1m)],
+            new ParsedImportTotals(null, 1m, null, 1m, null, null),
+            ParsedImportStats.Empty,
+            [ParseIssue.Create("W", IssueSeverity.Warning, IssueStage.Validation, null, "warn")]);
+        var noProductWarn = _svc.Ingest(new MemoryStream([55]), "e-warn.qrp");
+        Assert.Equal("WARNING", noProductWarn.ParseStatus);
+        Assert.False(noProductWarn.Published);
 
         var processingBytes = new byte[] { 6 };
         _parser.Default = _ => ValidImport("7", "P", [Out("P1", 1m, 1m, 1m)]);
@@ -326,6 +341,7 @@ public sealed class IngestionCoverageTests : IDisposable
         var failed = _svc.Reprocess(ingested.ImportFileId);
         Assert.Equal("FAILED", failed.ParseStatus);
         Assert.False(failed.Published);
+        Assert.Equal("FAILED", failed.FileStatus);
 
         _parser.Default = _ => IssueImport(IssueSeverity.Error);
         var invalid = _svc.Reprocess(ingested.ImportFileId);
@@ -430,7 +446,37 @@ public sealed class IngestionCoverageTests : IDisposable
     {
         _parser.Default = _ => ValidImport("41", "N", [Out("Q1", 1m, 1m, 1m)]);
         var ingested = _svc.Ingest(new MemoryStream([21]), "q.qrp");
+        _db.ValidationResults.Add(new ValidationResultEntity(
+            Guid.NewGuid(),
+            ingested.ParseAttemptId,
+            "SOURCE_QUANTITY_MISMATCH",
+            "INVALID",
+            2m,
+            1m,
+            1m,
+            0.001m,
+            "v1",
+            null));
+        _db.ValidationResults.Add(new ValidationResultEntity(
+            Guid.NewGuid(),
+            ingested.ParseAttemptId,
+            "SOURCE_QUANTITY_MATCH",
+            "VALID",
+            52.986m,
+            52.986m,
+            0m,
+            0.001m,
+            "v1",
+            null));
+        _db.SaveChanges();
         var queries = new ImportQueryService(_db);
+        var summary = queries.GetJob(ingested.JobId);
+        Assert.Equal("NAME", summary.Files[0].ProductName);
+        Assert.Equal("41", summary.Files[0].ProductExternalId);
+        Assert.NotNull(summary.Files[0].ParsedRevenue);
+        Assert.Equal("VALID", summary.Files[0].QuantityValidationStatus);
+        Assert.Equal(52.986m, decimal.Parse(summary.Files[0].SourceQuantity!, System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(52.986m, decimal.Parse(summary.Files[0].ParsedQuantity!, System.Globalization.CultureInfo.InvariantCulture));
         Assert.Throws<ApiException>(() => queries.GetFile(ingested.JobId, Guid.NewGuid()));
         Assert.Throws<ApiException>(() => queries.GetFile(Guid.NewGuid(), ingested.ImportFileId));
 
@@ -440,6 +486,9 @@ public sealed class IngestionCoverageTests : IDisposable
         var detail = queries.GetFile(ingested.JobId, ingested.ImportFileId);
         Assert.Null(detail.ParseStatus);
         Assert.Empty(detail.Validations);
+        var listed = queries.ListJobs(0, 20);
+        Assert.Contains(listed.Content, j => j.Id == ingested.JobId);
+        Assert.Contains(listed.Content.SelectMany(j => j.Files), f => f.Id == ingested.ImportFileId && f.ParseAttemptId is null);
     }
 
     [Fact]
@@ -454,6 +503,134 @@ public sealed class IngestionCoverageTests : IDisposable
         var sales = new Calciolari.DataHub.Sales.Application.SaleQueryService(_db);
         var page = sales.List(productId, new DateTime(2020, 1, 1), new DateTime(2099, 12, 31, 23, 59, 59), 0, 20);
         Assert.True(page.TotalElements >= 1);
+        var emptyDash = dash.Summarize(Guid.NewGuid(), new DateTime(2020, 1, 1), new DateTime(2020, 1, 2));
+        Assert.Equal(0, emptyDash.SalesCount);
+        Assert.Empty(emptyDash.Daily);
+        Assert.Empty(emptyDash.TopProducts);
+    }
+
+    [Fact]
+    public void Accept_enqueues_process_syncs_duplicates_and_reclaims()
+    {
+        var queue = new ImportWorkQueue();
+        var metrics = new ImportMetrics();
+        var svc = new ImportIngestionService(_storage, _parser, new FilenameHintsParser(), _db, null, queue, metrics);
+        _parser.Default = _ => ValidImport("41", "N", [Out("A1", 1m, 1m, 1m)]);
+
+        var job1 = svc.CreateJob();
+        var first = svc.AcceptIntoJob(job1, new MemoryStream([40, 41, 42]), "a.qrp");
+        Assert.Equal("PROCESSING", first.FileStatus);
+        Assert.True(queue.TryDequeue(out var queued));
+        Assert.Equal(first.ImportFileId, queued);
+        svc.CompleteJob(job1);
+        Assert.Equal("PROCESSING", _db.ImportJobs.AsNoTracking().Single(j => j.Id == job1).Status);
+
+        var job2 = svc.CreateJob();
+        var second = svc.AcceptIntoJob(job2, new MemoryStream([40, 41, 42]), "a-dup.qrp");
+        Assert.Equal("PROCESSING", second.FileStatus);
+        Assert.False(queue.TryDequeue(out _));
+
+        var processed = svc.ProcessAcceptedFile(first.ImportFileId);
+        Assert.True(processed.Published);
+        Assert.Equal("IMPORTED", _db.ImportFiles.AsNoTracking().Single(f => f.Id == second.ImportFileId).Status);
+        Assert.Equal("SUCCEEDED", _db.ImportJobs.AsNoTracking().Single(j => j.Id == job1).Status);
+        Assert.Equal("SUCCEEDED", _db.ImportJobs.AsNoTracking().Single(j => j.Id == job2).Status);
+
+        var linked = _db.ImportFiles.Single(f => f.Id == second.ImportFileId);
+        linked.Status = "PROCESSING";
+        linked.CompletedAt = null;
+        _db.SaveChanges();
+        var copied = svc.ProcessAcceptedFile(second.ImportFileId);
+        Assert.Equal("IMPORTED", copied.FileStatus);
+
+        var again = svc.ProcessAcceptedFile(first.ImportFileId);
+        Assert.Equal("IMPORTED", again.FileStatus);
+
+        var copyJob = svc.CreateJob();
+        var copy = svc.AcceptIntoJob(copyJob, new MemoryStream([40, 41, 42]), "a3.qrp");
+        Assert.True(copy.Deduplicated);
+        Assert.Equal("IMPORTED", copy.FileStatus);
+
+        Assert.Throws<InvalidOperationException>(() => svc.ProcessAcceptedFile(Guid.NewGuid()));
+
+        var pending = new ImportFileEntity(Guid.NewGuid(), job1, first.RawArtifactId, "no-attempt.qrp", "INTERPDV", "PROCESSING");
+        _db.ImportFiles.Add(pending);
+        _db.SaveChanges();
+        Assert.Throws<InvalidOperationException>(() => svc.ProcessAcceptedFile(pending.Id));
+
+        var snap = metrics.Snapshot();
+        Assert.NotNull(snap);
+
+        var reclaimJob = svc.CreateJob();
+        var stale = svc.AcceptIntoJob(reclaimJob, new MemoryStream([50, 51, 52]), "stale.qrp");
+        var staleAttempt = _db.ParseAttempts.Single(a => a.Id == stale.ParseAttemptId);
+        staleAttempt.LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(-10);
+        _db.SaveChanges();
+        svc.ReclaimExpiredProcessingLeases();
+        Assert.True(queue.TryDequeue(out var requeued));
+        Assert.Equal(stale.ImportFileId, requeued);
+
+        var direct = new ImportIngestionService(_storage, _parser, new FilenameHintsParser(), _db);
+        _parser.Default = _ => ValidImport("99", "Z", [Out("DIRECT1", 1m, 1m, 1m)]);
+        var directJob = direct.CreateJob();
+        var waiting = direct.AcceptIntoJob(directJob, new MemoryStream([60, 61, 62]), "direct.qrp");
+        var waitingAttempt = _db.ParseAttempts.Single(a => a.Id == waiting.ParseAttemptId);
+        waitingAttempt.LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(-10);
+        _db.SaveChanges();
+        _db.ChangeTracker.Clear();
+        direct.ReclaimExpiredProcessingLeases();
+        Assert.Equal("IMPORTED", _db.ImportFiles.AsNoTracking().Single(f => f.Id == waiting.ImportFileId).Status);
+
+        direct.ReclaimExpiredProcessingLeases();
+
+        var pendingJob = _svc.CreateJob();
+        var pendingAccept = _svc.AcceptIntoJob(pendingJob, new MemoryStream([80, 81, 82]), "pending.qrp");
+        var pendingFile = _db.ImportFiles.Single(f => f.Id == pendingAccept.ImportFileId);
+        pendingFile.Status = "PENDING";
+        _db.SaveChanges();
+        _svc.CompleteJob(pendingJob);
+        Assert.Null(_db.ImportJobs.AsNoTracking().Single(j => j.Id == pendingJob).CompletedAt);
+        _parser.Default = _ => ValidImport("77", "P", [Out("PEND1", 1m, 1m, 1m)]);
+        var pendingAttempt = _db.ParseAttempts.Single(a => a.Id == pendingAccept.ParseAttemptId);
+        pendingAttempt.Status = "PENDING";
+        _db.SaveChanges();
+        var pendingParsed = _svc.ProcessAcceptedFile(pendingAccept.ImportFileId);
+        Assert.True(pendingParsed.Published);
+
+        _parser.Default = _ => ValidImport("41", "N", [Out("A1", 1m, 1m, 1m)]);
+        var overlap = _svc.Ingest(new MemoryStream([91, 92, 93]), "overlap-copy.qrp");
+        Assert.Equal("WARNING", overlap.ParseStatus);
+        var overlapFile = _db.ImportFiles.Single(f => f.Id == overlap.ImportFileId);
+        overlapFile.Status = "PROCESSING";
+        overlapFile.CompletedAt = null;
+        _db.SaveChanges();
+        var copiedUnpublished = _svc.ProcessAcceptedFile(overlap.ImportFileId);
+        Assert.Equal("WARNING", copiedUnpublished.FileStatus);
+
+        _parser.Default = _ => ValidImport("12", "S", [Out("SYNC1", 1m, 1m, 1m)]);
+        var syncJob1 = _svc.CreateJob();
+        var syncA = _svc.AcceptIntoJob(syncJob1, new MemoryStream([21, 22, 23]), "sync-a.qrp");
+        var syncJob2 = _svc.CreateJob();
+        var syncB = _svc.AcceptIntoJob(syncJob2, new MemoryStream([21, 22, 23]), "sync-b.qrp");
+        _svc.ProcessAcceptedFile(syncA.ImportFileId);
+        Assert.Equal("IMPORTED", _db.ImportFiles.AsNoTracking().Single(f => f.Id == syncB.ImportFileId).Status);
+    }
+
+    [Fact]
+    public async Task Concurrent_identical_bytes_share_one_artifact()
+    {
+        _parser.Default = _ => ValidImport("1", "n", [Out("c1", 1m, 1m, 1m)]);
+        var bytes = new byte[] { 70, 71, 72, 73 };
+        using var db2 = TestDb.Open();
+        TestDb.Truncate(db2);
+        TestDb.Truncate(_db);
+        var svc2 = new ImportIngestionService(_storage, _parser, new FilenameHintsParser(), db2);
+        var t1 = Task.Run(() => _svc.Ingest(new MemoryStream(bytes), "a.qrp"));
+        var t2 = Task.Run(() => svc2.Ingest(new MemoryStream(bytes), "b.qrp"));
+        var results = await Task.WhenAll(t1, t2);
+        Assert.Contains(results, r => r.Published || r.Deduplicated || r.FileStatus is "IMPORTED" or "PROCESSING");
+        _db.ChangeTracker.Clear();
+        Assert.Equal(1, _db.RawArtifacts.Count());
     }
 
     private void MarkAllFilesDeduplicated(Guid artifactId)

@@ -42,6 +42,7 @@ function renderPage(jobId = 'job-abcdef12-zzzz') {
     <MemoryRouter initialEntries={[`/imports/${jobId}`]}>
       <Routes>
         <Route path="/imports/:jobId" element={<ImportJobPage />} />
+        <Route path="/imports/:jobId/files/:fileId" element={<div>file detail</div>} />
       </Routes>
     </MemoryRouter>
   )
@@ -54,7 +55,7 @@ describe('ImportJobPage', () => {
 
   it('renders job files table', async () => {
     renderPage()
-    expect(await screen.findByRole('heading', { name: /Job job-abcd/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'b.qrp' })).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     expect(screen.getByText('sim')).toBeInTheDocument()
     expect(screen.getByText('não')).toBeInTheDocument()
@@ -64,7 +65,7 @@ describe('ImportJobPage', () => {
   it('shows loading, error and not-found states', async () => {
     vi.mocked(getImportJob).mockImplementation(() => new Promise(() => {}))
     renderPage()
-    expect(await screen.findByText('Carregando job…')).toBeInTheDocument()
+    expect(await screen.findByText('Carregando importação…')).toBeInTheDocument()
 
     vi.mocked(getImportJob).mockRejectedValue(new Error('job err'))
     renderPage()
@@ -72,17 +73,35 @@ describe('ImportJobPage', () => {
 
     vi.mocked(getImportJob).mockResolvedValue(null as never)
     renderPage()
-    expect(await screen.findByText('Job não encontrado')).toBeInTheDocument()
+    expect(await screen.findByText('Importação não encontrada')).toBeInTheDocument()
   })
 
   it('navigates to file detail on row click', async () => {
-    const assign = vi.fn()
-    vi.stubGlobal('location', { ...window.location, assign })
     renderPage()
     const link = await screen.findByRole('link', { name: 'b.qrp' })
     fireEvent.click(link.closest('tr')!)
-    expect(assign).toHaveBeenCalled()
-    expect(assign.mock.calls[0][0]).toMatch(/\/imports\/job-abcdef12-zzzz\/files\/file-[12]$/)
-    vi.unstubAllGlobals()
+    expect(await screen.findByText('file detail')).toBeInTheDocument()
+  })
+
+  it('navigates to file detail with keyboard', async () => {
+    const { unmount } = renderPage()
+    const enterRow = (await screen.findByRole('link', { name: 'b.qrp' })).closest('tr')!
+    fireEvent.keyDown(enterRow, { key: 'Escape' })
+    fireEvent.keyDown(enterRow, { key: 'Enter' })
+    expect(await screen.findByText('file detail')).toBeInTheDocument()
+    unmount()
+    renderPage()
+    const spaceRow = (await screen.findByRole('link', { name: 'b.qrp' })).closest('tr')!
+    fireEvent.keyDown(spaceRow, { key: ' ' })
+    expect(await screen.findByText('file detail')).toBeInTheDocument()
+  })
+
+  it('falls back to Importação when no filename is present', async () => {
+    vi.mocked(getImportJob).mockResolvedValue({
+      ...job,
+      files: [{ ...job.files[0], originalFilename: '' }],
+    })
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Importação' })).toBeInTheDocument()
   })
 })

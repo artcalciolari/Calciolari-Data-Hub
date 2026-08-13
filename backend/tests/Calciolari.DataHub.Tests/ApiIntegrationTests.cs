@@ -77,6 +77,11 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/actuator/health/readiness")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/actuator/info")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/actuator/metrics")).StatusCode);
+        var metricsBody = await (await _client.GetAsync("/actuator/metrics")).Content.ReadAsStringAsync();
+        Assert.Contains("imports.completed", metricsBody);
+        var openapi = await _client.GetAsync("/openapi/v1.json");
+        Assert.Equal(HttpStatusCode.OK, openapi.StatusCode);
+        Assert.Contains("openapi", await openapi.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync("/nope")).StatusCode);
     }
 
@@ -108,18 +113,20 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Upload_fixture_a_then_query_and_dedup()
     {
+        Clean();
         var bytes = FixturePackage.RequireBytes("fixture-a");
         using var form = BuildFiles(("AUDITORIA.QRP", bytes));
         var upload = await _client.PostAsync("/api/imports/qrp", form);
         Assert.Equal(HttpStatusCode.Accepted, upload.StatusCode);
         Assert.StartsWith("/api/imports/", upload.Headers.Location!.ToString());
         var accepted = await upload.Content.ReadFromJsonAsync<JsonJob>();
-        Assert.Equal("SUCCEEDED", accepted!.Status);
-        Assert.False(accepted.Files[0].Deduplicated);
+        var finished = await WaitForJob(accepted!.Id);
+        Assert.Equal("SUCCEEDED", finished.Status);
+        Assert.False(finished.Files[0].Deduplicated);
 
-        var job = await _client.GetFromJsonAsync<JsonJob>("/api/imports/" + accepted.JobId);
+        var job = await _client.GetFromJsonAsync<JsonJob>("/api/imports/" + accepted.Id);
         Assert.Equal("SUCCEEDED", job!.Status);
-        var file = await _client.GetFromJsonAsync<JsonFile>($"/api/imports/{accepted.JobId}/files/{accepted.Files[0].Id}");
+        var file = await _client.GetFromJsonAsync<JsonFile>($"/api/imports/{accepted.Id}/files/{accepted.Files[0].Id}");
         Assert.Equal("IMPORTED", file!.Status);
         Assert.NotNull(file.Validations);
         Assert.NotEmpty(file.Validations);
@@ -127,8 +134,9 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         using var dup = BuildFiles(("OTHER.QRP", bytes));
         var dupResp = await _client.PostAsync("/api/imports/qrp", dup);
         dupResp.EnsureSuccessStatusCode();
-        var dupJob = await dupResp.Content.ReadFromJsonAsync<JsonJob>();
-        Assert.True(dupJob!.Files[0].Deduplicated);
+        var dupAccepted = await dupResp.Content.ReadFromJsonAsync<JsonJob>();
+        var dupJob = await WaitForJob(dupAccepted!.Id);
+        Assert.True(dupJob.Files[0].Deduplicated);
 
         var products = await _client.GetFromJsonAsync<JsonPage<JsonProduct>>("/api/products?q=NHOQUE&page=0&size=20");
         Assert.True(products!.TotalElements >= 1);
@@ -173,12 +181,14 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Garbage_qrp_is_stored_but_not_published()
     {
+        Clean();
         var garbage = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray();
         using var form = BuildFiles(("noise.qrp", garbage));
         var upload = await _client.PostAsync("/api/imports/qrp", form);
         Assert.Equal(HttpStatusCode.Accepted, upload.StatusCode);
-        var job = await upload.Content.ReadFromJsonAsync<JsonJob>();
-        Assert.Equal("FAILED", job!.Status);
+        var accepted = await upload.Content.ReadFromJsonAsync<JsonJob>();
+        var job = await WaitForJob(accepted!.Id);
+        Assert.Equal("FAILED", job.Status);
         Assert.Equal("FAILED", job.Files[0].Status);
         var products = await _client.GetFromJsonAsync<JsonPage<JsonProduct>>("/api/products");
         Assert.Equal(0, products!.TotalElements);
@@ -187,12 +197,32 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Partial_success_mixed_batch()
     {
+        Clean();
         var good = FixturePackage.RequireBytes("fixture-a");
         var bad = new byte[] { 1, 2, 3 };
         using var form = BuildFiles(("AUDITORIA.QRP", good), ("bad.qrp", bad));
         var upload = await _client.PostAsync("/api/imports/qrp", form);
-        var job = await upload.Content.ReadFromJsonAsync<JsonJob>();
-        Assert.Equal("PARTIAL_SUCCESS", job!.Status);
+        var accepted = await upload.Content.ReadFromJsonAsync<JsonJob>();
+        var job = await WaitForJob(accepted!.Id);
+        Assert.Equal("PARTIAL_SUCCESS", job.Status);
+    }
+
+    private async Task<JsonJob> WaitForJob(Guid id)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        JsonJob? job = null;
+        while (DateTime.UtcNow < deadline)
+        {
+            job = await _client.GetFromJsonAsync<JsonJob>("/api/imports/" + id);
+            if (job is not null && job.Status is not "PENDING" and not "PROCESSING")
+            {
+                return job;
+            }
+
+            await Task.Delay(50);
+        }
+
+        throw new TimeoutException("job " + id + " still " + job?.Status);
     }
 
     private static MultipartFormDataContent BuildFiles(params (string Name, byte[] Bytes)[] files)
@@ -252,6 +282,7 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
     public async Task Auth_enforced()
     {
         Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/actuator/health")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/openapi/v1.json")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync("/api/products")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync("/actuator/metrics")).StatusCode);
 
@@ -270,6 +301,9 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
 
         using var bad = Authed("viewer", "wrong");
         Assert.Equal(HttpStatusCode.Unauthorized, (await bad.GetAsync("/api/products")).StatusCode);
+
+        using var unknown = Authed("nobody", "v");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await unknown.GetAsync("/api/products")).StatusCode);
 
         using var bearer = new HttpClient { BaseAddress = _client.BaseAddress };
         bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "nope");
