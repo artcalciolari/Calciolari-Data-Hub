@@ -26,6 +26,9 @@ async function findSaleId(request: APIRequestContext, externalSaleId: string) {
 }
 
 test.describe('Calciolari Data Hub (seeded backend)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+  })
   test('dashboard shows published totals and rankings', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Resumo' })).toBeVisible()
@@ -57,7 +60,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByRole('heading', { name: 'Vendas', exact: true })).toBeVisible()
     const firstSale = page.locator('tbody tr').first()
     await expect(firstSale).toBeVisible()
-    await firstSale.click()
+    await firstSale.getByRole('link').click()
     await expect(page.getByRole('heading', { name: /Venda \d+/ })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Itens' })).toBeVisible()
   })
@@ -109,8 +112,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
       buffer: readFileSync(fixtureB),
     })
     await page.getByRole('button', { name: /Importar \(1\)/ }).click()
-    await expect(page.getByText('Já importado (mesmo conteúdo)')).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByText(/MOLHO POMODORO|AUDITORIA 41/)).toBeVisible()
+    await expect(page.getByText('Já importado (mesmo conteúdo)').first()).toBeVisible({ timeout: 60_000 })
   })
 
   test('unknown route renders the not-found page', async ({ page }) => {

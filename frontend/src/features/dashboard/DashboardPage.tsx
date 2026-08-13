@@ -142,10 +142,10 @@ export function DashboardPage() {
             <ol className="top-list">
               {data.topProducts.map((product, index) => {
                 const maxTopRevenue = data.topProducts.reduce((max, product) => {
-                  const value = decimal(product.revenue) ?? 0
+                  const value = decimal(product.revenue) ?? decimal('0')!
                   return value.greaterThan(max) ? value : max
                 }, decimal('0.001')!)
-                const width = Math.max(4, ((decimal(product.revenue) ?? 0).div(maxTopRevenue).times(100).toNumber()))
+                const width = Math.max(4, ((decimal(product.revenue) ?? decimal('0')!).div(maxTopRevenue).times(100).toNumber()))
                 return (
                   <li key={product.productId}>
                     <Link className="top-row" to={`/products/${product.productId}`}>

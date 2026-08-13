@@ -139,8 +139,10 @@ describe('api', () => {
         initial: { id: 'j1', status: 'PENDING', createdAt: 't', completedAt: null, files: [] },
       }),
     ).resolves.toMatchObject({ status: 'SUCCEEDED' })
-    vi.mocked(fetch).mockResolvedValue(
-      jsonResponse({ id: 'j1', status: 'PROCESSING', createdAt: 't', completedAt: null, files: [] }),
+    vi.mocked(fetch).mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ id: 'j1', status: 'PROCESSING', createdAt: 't', completedAt: null, files: [] }),
+      ),
     )
     await expect(waitForImportJob('j1', { intervalMs: 5, timeoutMs: 20 })).rejects.toThrow('tempo de espera')
   })

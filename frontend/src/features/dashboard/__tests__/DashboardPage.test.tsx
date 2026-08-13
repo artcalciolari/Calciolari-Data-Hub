@@ -24,6 +24,7 @@ const dashboardPayload = {
   topProducts: [
     { productId: 'p1', name: 'MOLHO POMODORO', externalId: '41', quantity: '52.986', revenue: '3013.07' },
     { productId: 'p2', name: 'OUTRO', externalId: '42', quantity: '1', revenue: '10' },
+    { productId: 'p3', name: 'SEM TOTAL', externalId: '43', quantity: '1', revenue: '' },
   ],
 }
 

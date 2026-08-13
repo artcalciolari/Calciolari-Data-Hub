@@ -9,6 +9,7 @@ vi.mock('@/shared/api', () => ({
 }))
 
 import { listImports, uploadQrp } from '@/shared/api'
+import type { ImportJob } from '@/shared/api'
 
 const jobRow = {
   id: 'job-12345678-abcd',
@@ -173,7 +174,7 @@ describe('ImportsPage', () => {
   })
 
   it('shows upload percent while the request is in flight', async () => {
-    let finish: ((job: typeof jobRow) => void) | undefined
+    let finish: ((job: ImportJob) => void) | undefined
     vi.mocked(uploadQrp).mockImplementation(async (files, onProgress) => {
       onProgress?.(files[0]!, 50, 100)
       return new Promise((resolve) => {
@@ -197,7 +198,7 @@ describe('ImportsPage', () => {
   })
 
   it('shows sending without percent when total is zero', async () => {
-    let finish: ((job: typeof jobRow) => void) | undefined
+    let finish: ((job: ImportJob) => void) | undefined
     vi.mocked(uploadQrp).mockImplementation(async (files, onProgress) => {
       onProgress?.(files[0]!, 1, 0)
       return new Promise((resolve) => {
