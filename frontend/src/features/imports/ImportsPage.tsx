@@ -18,6 +18,7 @@ export function ImportsPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [selected, setSelected] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [result, setResult] = useState<ImportJob | null>(null)
   const [drag, setDrag] = useState(false)
@@ -26,8 +27,9 @@ export function ImportsPage() {
     setUploading(true)
     setNotice(null)
     setResult(null)
+    setProgress(null)
     try {
-      const job = await uploadQrp(selected)
+      const job = await uploadQrp(selected, (_file, loaded, total) => setProgress({ loaded, total }))
       setResult(job)
       setSelected([])
       setRefresh((value) => value + 1)
@@ -35,8 +37,12 @@ export function ImportsPage() {
       setNotice(error instanceof Error ? error.message : 'Falha ao importar')
     } finally {
       setUploading(false)
+      setProgress(null)
     }
   }
+
+  const percent =
+    progress && progress.total > 0 ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : null
 
   return (
     <div className="grid">
@@ -76,7 +82,7 @@ export function ImportsPage() {
             Selecionar arquivos
           </button>
           <button className="btn primary" type="button" disabled={!selected.length || uploading} onClick={submit}>
-            {uploading ? 'Enviando…' : `Importar${selected.length ? ` (${selected.length})` : ''}`}
+            {uploading ? (percent != null ? `Enviando… ${percent}%` : 'Enviando…') : `Importar${selected.length ? ` (${selected.length})` : ''}`}
           </button>
         </div>
         {selected.length > 0 && (

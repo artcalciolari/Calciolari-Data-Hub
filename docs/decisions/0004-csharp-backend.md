@@ -12,8 +12,9 @@ O MVP estava em Java 21 + Spring Boot. A migração para C# mantém o contrato H
 
 - **.NET 10 LTS** (C# 14) + ASP.NET Core, solução `backend/Calciolari.DataHub.sln`. .NET 8 está em maintenance (EOL 10/11/2026); .NET 11 ainda é preview.
 - EF Core 10 + Npgsql 10; migração SQL embutida `V1__import_and_canonical.sql` (mesmo DDL da era Flyway).
-- Coverlet 100% line+branch, excluindo o namespace QRP/EMF (equivalente ao exclude JaCoCo).
-- PostgreSQL real apenas (sem InMemory/H2).
+- Coverlet 100% line+branch, excluindo o namespace QRP/EMF (equivalente ao exclude JaCoCo) e `Program.cs` / OpenAPI gerado.
+- PostgreSQL **16** real apenas (sem InMemory/H2); `compose.yaml` e CI usam a mesma major.
+- Migrações SQL versionadas (`schema_history` + `V*__*.sql` embutidos); V1 é baselined se o schema já existir.
 - Variáveis `DATAHUB_*`; `SPRING_DATASOURCE_*` ainda são lidas como fallback para scripts de backup existentes.
 - Porta **8080** para o proxy Vite.
 

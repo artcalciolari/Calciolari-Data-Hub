@@ -21,6 +21,7 @@ function renderPage() {
 
 describe('ProductsPage', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     vi.mocked(listProducts).mockResolvedValue({
       content: [{ id: 'p1', externalSource: 'interpdv', externalId: '41', name: 'MOLHO', unit: null }],
       page: 0,
@@ -36,6 +37,13 @@ describe('ProductsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buscar' }))
     expect(await screen.findByRole('link', { name: 'MOLHO' })).toBeInTheDocument()
     expect(listProducts).toHaveBeenLastCalledWith({ q: 'molho', page: 0, size: 50 })
+  })
+
+  it('restores persisted product search', async () => {
+    sessionStorage.setItem('datahub.filters.products', JSON.stringify({ q: 'nhoque' }))
+    renderPage()
+    expect(await screen.findByRole('link', { name: 'MOLHO' })).toBeInTheDocument()
+    expect(listProducts).toHaveBeenCalledWith({ q: 'nhoque', page: 0, size: 50 })
   })
 
   it('shows loading, error and empty states', async () => {

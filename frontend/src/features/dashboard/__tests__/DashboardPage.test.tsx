@@ -47,6 +47,7 @@ function renderPage() {
 
 describe('DashboardPage', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     vi.mocked(getDashboard).mockResolvedValue(dashboardPayload)
     vi.mocked(listSales).mockResolvedValue(salesPayload)
   })
@@ -115,6 +116,13 @@ describe('DashboardPage', () => {
     fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-07-01T00:00' } })
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-07-31T23:59' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
+  })
+
+  it('restores persisted date filters', async () => {
+    sessionStorage.setItem('datahub.filters.dashboard', JSON.stringify({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' }))
+    renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
     expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
   })
 

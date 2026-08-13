@@ -14,7 +14,7 @@
   --bg: #f7f7eb;
   --card: #ffffff;
   --text: var(--nocciola);
-  --muted: #7a7268;
+  --muted: #5c564e;
   --line: #e8ddd0;
   --soft: #f2e9dc;
   --accent: var(--nocciola);
@@ -409,7 +409,7 @@ tr.link-row:hover {
 }
 
 .badge.ok {
-  color: var(--ok);
+  color: #3d5a3a;
   border-color: rgba(110, 140, 105, 0.45);
 }
 

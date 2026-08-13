@@ -22,6 +22,7 @@ function renderPage() {
 
 describe('SalesPage', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     vi.mocked(listProducts).mockResolvedValue({
       content: [{ id: 'p1', externalSource: 'interpdv', externalId: '41', name: 'MOLHO', unit: null }],
       page: 0,
@@ -46,6 +47,22 @@ describe('SalesPage', () => {
     fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-07-31T23:59' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
     expect(listSales).toHaveBeenLastCalledWith({
+      productId: 'p1',
+      from: '2026-07-01T00:00',
+      to: '2026-07-31T23:59',
+      page: 0,
+      size: 50,
+    })
+  })
+
+  it('restores persisted sales filters', async () => {
+    sessionStorage.setItem(
+      'datahub.filters.sales',
+      JSON.stringify({ productId: 'p1', from: '2026-07-01T00:00', to: '2026-07-31T23:59' }),
+    )
+    renderPage()
+    expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
+    expect(listSales).toHaveBeenCalledWith({
       productId: 'p1',
       from: '2026-07-01T00:00',
       to: '2026-07-31T23:59',

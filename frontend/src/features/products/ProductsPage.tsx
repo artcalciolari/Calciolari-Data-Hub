@@ -5,11 +5,15 @@ import { StateMessage } from '@/shared/StateMessage'
 import { TableSkeleton } from '@/shared/TableSkeleton'
 import { Pagination } from '@/shared/Pagination'
 import { useAsync } from '@/shared/useAsync'
+import { readSessionFilter, writeSessionFilter } from '@/shared/sessionFilters'
+
+const FILTER_KEY = 'datahub.filters.products'
 
 export function ProductsPage() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState('')
+  const stored = readSessionFilter(FILTER_KEY, { q: '' })
+  const [query, setQuery] = useState(stored.q)
+  const [submitted, setSubmitted] = useState(stored.q)
   const [page, setPage] = useState(0)
   const state = useAsync(() => listProducts({ q: submitted || undefined, page, size: 50 }), [submitted, page])
 
@@ -27,7 +31,9 @@ export function ProductsPage() {
         onSubmit={(event) => {
           event.preventDefault()
           setPage(0)
-          setSubmitted(query.trim())
+          const next = query.trim()
+          writeSessionFilter(FILTER_KEY, { q: next })
+          setSubmitted(next)
         }}
       >
         <input

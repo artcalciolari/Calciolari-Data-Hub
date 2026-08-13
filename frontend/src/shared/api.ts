@@ -172,15 +172,83 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function problemDetail(status: number, raw: string, fallback: string): ApiError {
+  try {
+    const problem: unknown = JSON.parse(raw)
+    const detail =
+      problem !== null &&
+      typeof problem === 'object' &&
+      'detail' in problem &&
+      typeof (problem as { detail: unknown }).detail === 'string'
+        ? (problem as { detail: string }).detail
+        : undefined
+    return new ApiError(status, detail)
+  } catch {
+    return new ApiError(status, fallback)
+  }
+}
+
+export async function waitForImportJob(
+  id: string,
+  options: { intervalMs?: number; timeoutMs?: number; initial?: ImportJob } = {},
+): Promise<ImportJob> {
+  const intervalMs = options.intervalMs ?? 250
+  const timeoutMs = options.timeoutMs ?? 60_000
+  const started = Date.now()
+  let job = options.initial ?? (await getImportJob(id))
+  while (job.status === 'PENDING' || job.status === 'PROCESSING') {
+    if (Date.now() - started > timeoutMs) {
+      throw new Error('Importação excedeu o tempo de espera')
+    }
+    await delay(intervalMs)
+    job = await getImportJob(id)
+  }
+  return job
+}
+
 export function uploadQrp(files: File[], onProgress?: (file: File, done: number, total: number) => void) {
   const body = new FormData()
   files.forEach((file) => body.append('files', file, file.name))
-  onProgress?.(files[0] ?? new File([], ''), 0, files.length)
-  return request<ImportJob>('/api/imports/qrp', { method: 'POST', body })
-    .then((job) => {
-      onProgress?.(files[files.length - 1] ?? new File([], ''), files.length, files.length)
-      return job
-    })
+  const fallback = files[0] ?? new File([], '')
+  return new Promise<ImportJob>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${base}/api/imports/qrp`)
+    xhr.setRequestHeader('Accept', 'application/json')
+    const auth = readBasicAuth()
+    if (auth) {
+      xhr.setRequestHeader('Authorization', `Basic ${auth}`)
+    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(fallback, event.loaded, event.total)
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        clearBasicAuth()
+      }
+      if (xhr.status === 202 || xhr.status === 200) {
+        try {
+          const job = JSON.parse(xhr.responseText) as ImportJob
+          waitForImportJob(job.id, { initial: job }).then(resolve, reject)
+        } catch (error) {
+          reject(error)
+        }
+        return
+      }
+      reject(problemDetail(xhr.status, xhr.responseText, xhr.statusText || `HTTP ${xhr.status}`))
+    }
+    xhr.onerror = () => {
+      reject(new ApiError(0, 'Falha de rede'))
+    }
+    xhr.send(body)
+  })
 }
 
 export function listImports(params: { page?: number; size?: number } = {}) {

@@ -16,8 +16,9 @@ namespace Calciolari.DataHub.Imports.Application;
 
 /// <summary>
 /// Ingests one QRP upload: hash → immutable raw store → dedup → parse → optional publish.
+/// HTTP accepts files and enqueues parse; <see cref="Ingest"/> stays synchronous for tests.
 /// </summary>
-public sealed class ImportIngestionService
+public sealed class ImportIngestionService : IImportFileProcessor
 {
     private const string Source = "INTERPDV";
     private static readonly Regex Kv = new(@"(\w+)=([^\s]+)", RegexOptions.Compiled);
@@ -28,19 +29,25 @@ public sealed class ImportIngestionService
     private readonly FilenameHintsParser _hintsParser;
     private readonly DataHubDbContext _db;
     private readonly ILogger<ImportIngestionService> _logger;
+    private readonly IImportWorkQueue? _workQueue;
+    private readonly ImportMetrics? _metrics;
 
     public ImportIngestionService(
         IRawFileStorage rawFileStorage,
         IImportParser parser,
         FilenameHintsParser hintsParser,
         DataHubDbContext db,
-        ILogger<ImportIngestionService>? logger = null)
+        ILogger<ImportIngestionService>? logger = null,
+        IImportWorkQueue? workQueue = null,
+        ImportMetrics? metrics = null)
     {
         _rawFileStorage = rawFileStorage;
         _parser = parser;
         _hintsParser = hintsParser;
         _db = db;
         _logger = logger ?? NullLogger<ImportIngestionService>.Instance;
+        _workQueue = workQueue;
+        _metrics = metrics;
     }
 
     public ImportedFileResult Ingest(Stream content, string? originalFilename)
@@ -68,7 +75,17 @@ public sealed class ImportIngestionService
         InTransaction(() =>
         {
             var job = _db.ImportJobs.Single(j => j.Id == jobId);
+            if (job.CompletedAt is not null)
+            {
+                return;
+            }
+
             var files = _db.ImportFiles.Where(f => f.ImportJobId == jobId).OrderBy(f => f.CreatedAt).ToList();
+            if (files.Any(f => f.Status is "PENDING" or "PROCESSING"))
+            {
+                return;
+            }
+
             var imported = files.Count(f => f.Status is "IMPORTED" or "WARNING");
             var failed = files.Count(f => f.Status is "INVALID" or "FAILED");
             if (files.Count == 0 || (failed > 0 && imported == 0))
@@ -86,6 +103,7 @@ public sealed class ImportIngestionService
 
             job.CompletedAt = DateTimeOffset.UtcNow;
             _db.SaveChanges();
+            _metrics?.RecordJobCompleted(job.Status);
         });
     }
 
@@ -237,7 +255,63 @@ public sealed class ImportIngestionService
         _logger.LogWarning("Parse attempt {AttemptId} failed: {Summary}", attemptId, attempt.ErrorSummary);
     }
 
+    public ImportedFileResult AcceptIntoJob(Guid jobId, Stream content, string? originalFilename)
+    {
+        var ctx = AcceptCore(jobId, content, originalFilename, enqueue: true);
+        return ToResult(ctx, null, ctx.AlreadyPublished);
+    }
+
     public ImportedFileResult IngestIntoJob(Guid jobId, Stream content, string? originalFilename)
+    {
+        var ctx = AcceptCore(jobId, content, originalFilename, enqueue: false);
+        if (!ctx.SkipParse && ctx.File.Status == "PROCESSING")
+        {
+            return ProcessAcceptedFile(ctx.File.Id);
+        }
+
+        return ToResult(ctx, null, ctx.AlreadyPublished);
+    }
+
+    public ImportedFileResult ProcessAcceptedFile(Guid importFileId)
+    {
+        var lookup = _db.ImportFiles.AsNoTracking().SingleOrDefault(f => f.Id == importFileId)
+                     ?? throw new InvalidOperationException("unknown import file " + importFileId);
+        lock (ReprocessLocks.For(lookup.RawArtifactId))
+        {
+            return ProcessAcceptedFileLocked(importFileId);
+        }
+    }
+
+    public void ReclaimExpiredProcessingLeases()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expired = _db.ParseAttempts
+            .Where(a => a.Status == "PROCESSING" && a.LeaseUntil != null && a.LeaseUntil < now)
+            .ToList();
+        foreach (var attempt in expired)
+        {
+            attempt.LeaseUntil = now.AddSeconds(300);
+            attempt.LeaseGeneration += 1;
+            _db.SaveChanges();
+            var files = _db.ImportFiles
+                .Where(f => f.ParseAttemptId == attempt.Id && f.Status == "PROCESSING")
+                .Select(f => f.Id)
+                .ToList();
+            foreach (var fileId in files)
+            {
+                if (_workQueue is not null)
+                {
+                    _workQueue.Enqueue(fileId);
+                }
+                else
+                {
+                    ProcessAcceptedFile(fileId);
+                }
+            }
+        }
+    }
+
+    private IngestContext AcceptCore(Guid jobId, Stream content, string? originalFilename, bool enqueue)
     {
         ArgumentNullException.ThrowIfNull(content);
         var filename = originalFilename ?? string.Empty;
@@ -250,6 +324,11 @@ public sealed class ImportIngestionService
                 stored = _rawFileStorage.PutIfAbsent(
                     storedStream,
                     RawFileDescriptor.Create(spool.Sha256, spool.ByteSize, "QRP"));
+            }
+
+            if (stored.Created)
+            {
+                _metrics?.AddRawBytes(spool.ByteSize);
             }
 
             var hints = _hintsParser.Parse(filename);
@@ -277,6 +356,11 @@ public sealed class ImportIngestionService
                     "failed to open/create artifact after retries for " + spool.Sha256, lastConflict);
             }
 
+            if (enqueue && !ctx.SkipParse && ctx.File.Status == "PROCESSING")
+            {
+                _workQueue?.Enqueue(ctx.File.Id);
+            }
+
             if (ctx.SkipParse)
             {
                 _logger.LogInformation(
@@ -286,26 +370,13 @@ public sealed class ImportIngestionService
                     InterPdvQrpParser.ParserName,
                     ctx.File.Status,
                     ctx.File.Deduplicated);
-                return ToResult(ctx, null, ctx.AlreadyPublished);
+                if (ctx.File.Status is not "PENDING" and not "PROCESSING")
+                {
+                    _metrics?.RecordFile(ctx.File.Status, ctx.File.Deduplicated, 0);
+                }
             }
 
-            ParsedImport parsed;
-            using (var input = _rawFileStorage.OpenVerified(stored.StorageKey, spool.Sha256, spool.ByteSize))
-            {
-                parsed = _parser.Parse(new ParserInput(input, spool.ByteSize, filename, "QRP"));
-            }
-
-            var result = InTransaction(() => FinalizeParse(ctx, parsed));
-            _logger.LogInformation(
-                "Imported originalFilename={OriginalFilename} sha256={Sha256} parser={Parser} records={Records} parseStatus={ParseStatus} published={Published} deduplicated={Deduplicated}",
-                filename,
-                spool.Sha256,
-                InterPdvQrpParser.ParserName,
-                result.RecordsFound,
-                result.ParseStatus,
-                result.Published,
-                result.Deduplicated);
-            return result;
+            return ctx;
         }
         finally
         {
@@ -314,6 +385,93 @@ public sealed class ImportIngestionService
                 File.Delete(spool.TempPath);
             }
         }
+    }
+
+    private ImportedFileResult ProcessAcceptedFileLocked(Guid importFileId)
+    {
+        var file = _db.ImportFiles.Single(f => f.Id == importFileId);
+        var job = _db.ImportJobs.Single(j => j.Id == file.ImportJobId);
+        var artifact = _db.RawArtifacts.Single(a => a.Id == file.RawArtifactId);
+        if (file.ParseAttemptId is null)
+        {
+            throw new InvalidOperationException("import file has no parse attempt " + importFileId);
+        }
+
+        var attempt = _db.ParseAttempts.Single(a => a.Id == file.ParseAttemptId);
+        if (file.Status is not "PENDING" and not "PROCESSING")
+        {
+            CompleteJob(job.Id);
+            return ToResult(new IngestContext(job, file, artifact, attempt, true, AlreadyPublished(artifact.Id)), null, AlreadyPublished(artifact.Id));
+        }
+
+        if (attempt.Status is not "PENDING" and not "PROCESSING")
+        {
+            var published = AlreadyPublished(artifact.Id);
+            file.Status = published ? "IMPORTED" : MapFileStatus(attempt.Status);
+            _metrics?.RecordFile(file.Status, file.Deduplicated, ElapsedMs(file));
+            file.CompletedAt = DateTimeOffset.UtcNow;
+            _db.SaveChanges();
+            SyncLinkedFiles(attempt.Id, file.Id);
+            CompleteJob(job.Id);
+            return ToResult(new IngestContext(job, file, artifact, attempt, true, published), null, published);
+        }
+
+        ParsedImport parsed;
+        using (var input = _rawFileStorage.OpenVerified(artifact.StorageKey, artifact.Sha256, artifact.ByteSize))
+        {
+            parsed = _parser.Parse(new ParserInput(input, artifact.ByteSize, file.OriginalFilename, "QRP"));
+        }
+
+        var ctx = new IngestContext(job, file, artifact, attempt, false, false);
+        var result = InTransaction(() => FinalizeParse(ctx, parsed));
+        _logger.LogInformation(
+            "Imported originalFilename={OriginalFilename} sha256={Sha256} parser={Parser} records={Records} parseStatus={ParseStatus} published={Published} deduplicated={Deduplicated}",
+            file.OriginalFilename,
+            artifact.Sha256,
+            InterPdvQrpParser.ParserName,
+            result.RecordsFound,
+            result.ParseStatus,
+            result.Published,
+            result.Deduplicated);
+        _metrics?.RecordFile(result.FileStatus, result.Deduplicated, ElapsedMs(file));
+        SyncLinkedFiles(attempt.Id, file.Id);
+        CompleteJob(job.Id);
+        return result;
+    }
+
+    private void SyncLinkedFiles(Guid parseAttemptId, Guid sourceFileId)
+    {
+        var source = _db.ImportFiles.Single(f => f.Id == sourceFileId);
+        var linked = _db.ImportFiles
+            .Where(f => f.ParseAttemptId == parseAttemptId && f.Id != sourceFileId && f.Status == "PROCESSING")
+            .ToList();
+        if (linked.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var file in linked)
+        {
+            file.Status = source.Status;
+            file.CompletedAt = source.CompletedAt;
+            _metrics?.RecordFile(file.Status, file.Deduplicated, ElapsedMs(file));
+        }
+
+        _db.SaveChanges();
+        foreach (var file in linked)
+        {
+            CompleteJob(file.ImportJobId);
+        }
+    }
+
+    private bool AlreadyPublished(Guid artifactId) =>
+        _db.ArtifactPublications.Any(p => p.RawArtifactId == artifactId);
+
+    private static long ElapsedMs(ImportFileEntity file)
+    {
+        var end = file.CompletedAt ?? DateTimeOffset.UtcNow;
+        var ms = (long)(end - file.CreatedAt).TotalMilliseconds;
+        return Math.Max(0L, ms);
     }
 
     private IngestContext OpenOrCreateOnce(

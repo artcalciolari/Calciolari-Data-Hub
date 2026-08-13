@@ -1,20 +1,23 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getDashboard, listSales } from '@/shared/api'
-import { formatDateTime, formatInteger, formatMoney, formatQuantity } from '@/shared/format'
+import { decimal, formatDateTime, formatInteger, formatMoney, formatQuantity } from '@/shared/format'
 import { Icon, type IconName } from '@/shared/icons'
 import { StateMessage } from '@/shared/StateMessage'
 import { Skeleton } from '@/shared/Skeleton'
 import { DailyBars } from '@/shared/DailyBars'
 import { useAsync } from '@/shared/useAsync'
+import { readSessionFilter, writeSessionFilter } from '@/shared/sessionFilters'
 
 type Metric = 'revenue' | 'quantity'
+const FILTER_KEY = 'datahub.filters.dashboard'
 
 export function DashboardPage() {
+  const stored = readSessionFilter(FILTER_KEY, { from: '', to: '' })
   const [metric, setMetric] = useState<Metric>('revenue')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [applied, setApplied] = useState({ from: '', to: '' })
+  const [from, setFrom] = useState(stored.from)
+  const [to, setTo] = useState(stored.to)
+  const [applied, setApplied] = useState(stored)
   const state = useAsync(
     () => getDashboard({
       from: applied.from || undefined,
@@ -51,7 +54,9 @@ export function DashboardPage() {
         className="form-row"
         onSubmit={(event) => {
           event.preventDefault()
-          setApplied({ from, to })
+          const next = { from, to }
+          writeSessionFilter(FILTER_KEY, next)
+          setApplied(next)
         }}
       >
         <input aria-label="De" type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -136,8 +141,11 @@ export function DashboardPage() {
           ) : (
             <ol className="top-list">
               {data.topProducts.map((product, index) => {
-                const maxTopRevenue = Math.max(...data.topProducts.map((p) => Number(p.revenue)), 0.001)
-                const width = Math.max(4, (Number(product.revenue) / maxTopRevenue) * 100)
+                const maxTopRevenue = data.topProducts.reduce((max, product) => {
+                  const value = decimal(product.revenue) ?? 0
+                  return value.greaterThan(max) ? value : max
+                }, decimal('0.001')!)
+                const width = Math.max(4, ((decimal(product.revenue) ?? 0).div(maxTopRevenue).times(100).toNumber()))
                 return (
                   <li key={product.productId}>
                     <Link className="top-row" to={`/products/${product.productId}`}>

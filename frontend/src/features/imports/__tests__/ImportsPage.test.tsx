@@ -58,7 +58,9 @@ describe('ImportsPage', () => {
   })
 
   it('renders history and supports file selection upload flow', async () => {
-    vi.mocked(uploadQrp).mockResolvedValue({
+    vi.mocked(uploadQrp).mockImplementation(async (files, onProgress) => {
+      onProgress?.(files[0]!, 50, 100)
+      return {
       id: 'j-new',
       status: 'SUCCEEDED',
       createdAt: 't',
@@ -78,6 +80,7 @@ describe('ImportsPage', () => {
         parsedRevenue: '3013.07',
         quantityValidationStatus: 'VALID',
       }],
+    }
     })
     renderPage()
     expect(await screen.findByText('Histórico')).toBeInTheDocument()
@@ -169,7 +172,55 @@ describe('ImportsPage', () => {
     expect(await screen.findByRole('link', { name: 'Importação' })).toBeInTheDocument()
   })
 
-  it('keeps import disabled when no files selected', async () => {
+  it('shows upload percent while the request is in flight', async () => {
+    let finish: ((job: typeof jobRow) => void) | undefined
+    vi.mocked(uploadQrp).mockImplementation(async (files, onProgress) => {
+      onProgress?.(files[0]!, 50, 100)
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    renderPage()
+    await screen.findByText('Histórico')
+    const file = new File(['data'], 'test.qrp', { type: 'application/octet-stream' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: /Importar \(1\)/ }))
+    expect(await screen.findByRole('button', { name: 'Enviando… 50%' })).toBeInTheDocument()
+    finish!({
+      id: 'j-new',
+      status: 'SUCCEEDED',
+      createdAt: 't',
+      completedAt: null,
+      files: jobRow.files,
+    })
+    expect(await screen.findByText('MOLHO POMODORO')).toBeInTheDocument()
+  })
+
+  it('shows sending without percent when total is zero', async () => {
+    let finish: ((job: typeof jobRow) => void) | undefined
+    vi.mocked(uploadQrp).mockImplementation(async (files, onProgress) => {
+      onProgress?.(files[0]!, 1, 0)
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    renderPage()
+    await screen.findByText('Histórico')
+    const file = new File(['data'], 'test.qrp', { type: 'application/octet-stream' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: /Importar \(1\)/ }))
+    expect(await screen.findByRole('button', { name: 'Enviando…' })).toBeInTheDocument()
+    finish!({
+      id: 'j-new',
+      status: 'SUCCEEDED',
+      createdAt: 't',
+      completedAt: null,
+      files: jobRow.files,
+    })
+    expect(await screen.findByText('MOLHO POMODORO')).toBeInTheDocument()
+  })
+
+  it('keeps import disabled when no files are selected', async () => {
     renderPage()
     await screen.findByText('Histórico')
     const importBtn = screen.getByRole('button', { name: /^Importar$/ }) as HTMLButtonElement

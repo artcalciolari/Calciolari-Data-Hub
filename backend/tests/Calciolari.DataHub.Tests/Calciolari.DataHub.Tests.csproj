@@ -16,7 +16,7 @@
     <Include>[Calciolari.DataHub]*</Include>
     <Exclude>[Calciolari.DataHub]Calciolari.DataHub.Imports.Infrastructure.InterPdv.Qrp.*</Exclude>
     <SkipAutoProps>true</SkipAutoProps>
-    <ExcludeByFile>**/Program.cs</ExcludeByFile>
+    <ExcludeByFile>**/Program.cs,**/OpenApiXmlCommentSupport.generated.cs</ExcludeByFile>
   </PropertyGroup>
 
   <ItemGroup>

@@ -47,7 +47,7 @@ public sealed class ImportController : ControllerBase
         foreach (var file in files)
         {
             using var stream = file.OpenReadStream();
-            _ingestionService.IngestIntoJob(jobId, stream, file.FileName);
+            _ingestionService.AcceptIntoJob(jobId, stream, file.FileName);
         }
 
         _ingestionService.CompleteJob(jobId);

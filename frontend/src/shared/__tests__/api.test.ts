@@ -11,6 +11,7 @@ import {
   listSales,
   NAV_ITEMS,
   uploadQrp,
+  waitForImportJob,
 } from '../api'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -20,9 +21,49 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+type ProgressEvt = { lengthComputable: boolean; loaded: number; total: number }
+
+function mockXhr(options: {
+  status?: number
+  body?: unknown
+  text?: string
+  error?: boolean
+  statusText?: string
+}) {
+  const xhr = {
+    upload: { onprogress: null as ((event: ProgressEvt) => void) | null },
+    status: options.status ?? 202,
+    responseText: options.text ?? JSON.stringify(options.body ?? {}),
+    statusText: options.statusText ?? 'Error',
+    onload: null as (() => void) | null,
+    onerror: null as (() => void) | null,
+    headers: {} as Record<string, string>,
+    open: vi.fn(),
+    setRequestHeader: vi.fn((key: string, value: string) => {
+      xhr.headers[key] = value
+    }),
+    send: vi.fn(() => {
+      xhr.upload.onprogress?.({ lengthComputable: true, loaded: 4, total: 8 })
+      xhr.upload.onprogress?.({ lengthComputable: false, loaded: 0, total: 0 })
+      queueMicrotask(() => {
+        if (options.error) xhr.onerror?.()
+        else xhr.onload?.()
+      })
+    }),
+  }
+  vi.stubGlobal(
+    'XMLHttpRequest',
+    vi.fn(function XMLHttpRequest(this: unknown) {
+      return xhr
+    }),
+  )
+  return xhr
+}
+
 describe('api', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    sessionStorage.clear()
   })
 
   afterEach(() => {
@@ -33,25 +74,75 @@ describe('api', () => {
     expect(NAV_ITEMS.map((item) => item.to)).toEqual(['/', '/sales', '/products', '/imports'])
   })
 
-  it('uploadQrp posts FormData and reports progress', async () => {
-    const job = { id: 'j1', status: 'PENDING', createdAt: 't', completedAt: null, files: [] }
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(job))
+  it('uploadQrp posts FormData, reports progress and waits for a terminal job', async () => {
+    const job = { id: 'j1', status: 'SUCCEEDED', createdAt: 't', completedAt: null, files: [] }
+    mockXhr({ status: 202, body: job })
     const file = new File(['x'], 'a.qrp', { type: 'application/octet-stream' })
     const onProgress = vi.fn()
     const result = await uploadQrp([file], onProgress)
     expect(result).toEqual(job)
-    expect(onProgress).toHaveBeenCalledTimes(2)
-    const [, init] = vi.mocked(fetch).mock.calls[0]!
-    expect(init?.method).toBe('POST')
-    expect(init?.body).toBeInstanceOf(FormData)
+    expect(onProgress).toHaveBeenCalledWith(file, 4, 8)
   })
 
-  it('uploadQrp works with empty file list progress fallback', async () => {
-    const job = { id: 'j1', status: 'PENDING', createdAt: 't', completedAt: null, files: [] }
-    vi.mocked(fetch).mockResolvedValue(jsonResponse(job))
+  it('uploadQrp works with empty file list progress fallback and HTTP 200', async () => {
+    const job = { id: 'j1', status: 'SUCCEEDED', createdAt: 't', completedAt: null, files: [] }
+    mockXhr({ status: 200, body: job })
     const onProgress = vi.fn()
     await uploadQrp([], onProgress)
     expect(onProgress).toHaveBeenCalled()
+  })
+
+  it('uploadQrp sends basic auth and polls PROCESSING jobs', async () => {
+    sessionStorage.setItem('datahub.basic', btoa('admin:secret'))
+    const pending = { id: 'j1', status: 'PROCESSING', createdAt: 't', completedAt: null, files: [] }
+    const done = { ...pending, status: 'SUCCEEDED' }
+    const xhr = mockXhr({ status: 202, body: pending })
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(done))
+    const result = await uploadQrp([new File(['x'], 'a.qrp')])
+    expect(result.status).toBe('SUCCEEDED')
+    expect(xhr.headers.Authorization).toBe(`Basic ${btoa('admin:secret')}`)
+    expect(fetch).toHaveBeenCalledWith('/api/imports/j1', expect.any(Object))
+  })
+
+  it('uploadQrp clears auth on 401 and parses problem details', async () => {
+    sessionStorage.setItem('datahub.basic', btoa('admin:secret'))
+    mockXhr({ status: 401, body: { detail: 'nope' } })
+    await expect(uploadQrp([new File(['x'], 'a.qrp')])).rejects.toMatchObject({ status: 401, detail: 'nope' })
+    expect(sessionStorage.getItem('datahub.basic')).toBeNull()
+  })
+
+  it('uploadQrp rejects invalid JSON success bodies and network errors', async () => {
+    mockXhr({ status: 202, text: '{not-json' })
+    await expect(uploadQrp([new File(['x'], 'a.qrp')])).rejects.toBeInstanceOf(SyntaxError)
+    mockXhr({ error: true })
+    await expect(uploadQrp([new File(['x'], 'a.qrp')])).rejects.toMatchObject({ status: 0, detail: 'Falha de rede' })
+  })
+
+  it('uploadQrp maps non-JSON and detail-less error bodies', async () => {
+    mockXhr({ status: 400, text: 'plain', statusText: 'Bad' })
+    await expect(uploadQrp([new File(['x'], 'a.qrp')])).rejects.toMatchObject({ status: 400, detail: 'Bad' })
+    mockXhr({ status: 400, body: { title: 'nope' }, statusText: '' })
+    await expect(uploadQrp([new File(['x'], 'a.qrp')])).rejects.toMatchObject({ status: 400, message: 'HTTP 400' })
+  })
+
+  it('waitForImportJob returns terminal jobs and times out while processing', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ id: 'j1', status: 'SUCCEEDED', createdAt: 't', completedAt: null, files: [] }),
+    )
+    await expect(waitForImportJob('j1')).resolves.toMatchObject({ status: 'SUCCEEDED' })
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ id: 'j1', status: 'SUCCEEDED', createdAt: 't', completedAt: null, files: [] }),
+    )
+    await expect(
+      waitForImportJob('j1', {
+        intervalMs: 5,
+        initial: { id: 'j1', status: 'PENDING', createdAt: 't', completedAt: null, files: [] },
+      }),
+    ).resolves.toMatchObject({ status: 'SUCCEEDED' })
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ id: 'j1', status: 'PROCESSING', createdAt: 't', completedAt: null, files: [] }),
+    )
+    await expect(waitForImportJob('j1', { intervalMs: 5, timeoutMs: 20 })).rejects.toThrow('tempo de espera')
   })
 
   it('listImports builds query params', async () => {

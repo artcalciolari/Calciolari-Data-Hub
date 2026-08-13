@@ -8,7 +8,7 @@ Ver `.env.example`. Principais:
 |---|---|---|
 | `DATAHUB_CONNECTION_STRING` | local Postgres | Npgsql (`Host=…;Database=…;Username=…;Password=…`) |
 | `SPRING_DATASOURCE_*` | local Postgres | fallback JDBC (scripts de backup / restore) |
-| `DATAHUB_RAW_STORAGE_ROOT` | `./data/raw-storage` | bytes imutáveis `.QRP` |
+| `DATAHUB_RAW_STORAGE_ROOT` | `./data/raw-storage` | bytes imutáveis `.QRP` no **host** (não é volume do `compose.yaml`) |
 | `DATAHUB_IMPORTS_MAX_FILES` | `20` | arquivos por upload |
 | `DATAHUB_IMPORTS_MAX_FILE_BYTES` | `33554432` (32MB) | tamanho por arquivo |
 | `DATAHUB_SECURITY_ENABLED` | `false` | autenticação HTTP Basic |
@@ -24,6 +24,10 @@ Ver `.env.example`. Principais:
   - `IMPORTER` — VIEWER + `POST /api/imports/qrp` (upload)
   - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess` + `/actuator/metrics`
 - `/actuator/health` and `/actuator/health/readiness` return HTTP **503** when the database is down. `/actuator/health/liveness` stays `200`. `/actuator/info` remains public.
+- `/actuator/metrics` exposes in-process counters: `imports.completed`, `imports.duplicates`, `imports.warnings`, `imports.failures`, `imports.duration.ms`, `raw.storage.bytes`.
+- `GET /openapi/v1.json` is anonymous.
+- Schema migrations: table `schema_history` records applied `V*__*.sql` scripts. Existing databases that already have `raw_artifact` baseline V1 without re-running the DDL.
+- Parse worker: in-process channel + lease reclaim. `POST /api/imports/qrp` returns `202` as soon as bytes are durable; poll the job until it leaves `PENDING`/`PROCESSING`.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
 - CORS vazio = same-origin only. Prefira reverse-proxy same-origin em produção.
 - Stack traces nunca são incluídos no Problem Details.
@@ -48,7 +52,7 @@ MIME e filename do cliente não são confiáveis; só a extensão e o tamanho s�
 
 ## Backup e restore (unidade lógica)
 
-Trate **PostgreSQL + diretório raw** como uma unidade. Restaurar só o banco sem os bytes (ou o inverso) deixa o sistema inconsistente.
+Trate **PostgreSQL + diretório raw no host** (`DATAHUB_RAW_STORAGE_ROOT`, default `./data/raw-storage`) como uma unidade. O `compose.yaml` sobe só Postgres 16; os bytes `.QRP` não entram num volume Docker. Restaurar só o banco sem os bytes (ou o inverso) deixa o sistema inconsistente.
 
 ### Backup
 

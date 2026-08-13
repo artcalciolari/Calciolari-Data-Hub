@@ -148,10 +148,16 @@ public sealed class SecurityAndOptionsTests
         using var db = Support.TestDb.Open();
         db.Database.ExecuteSqlRaw("""
             DROP TABLE IF EXISTS sale_item, sale, product, validation_result, parsed_movement,
-              artifact_publication, import_file, parse_attempt, import_job, raw_artifact CASCADE
+              artifact_publication, import_file, parse_attempt, import_job, raw_artifact, schema_history CASCADE
             """);
         Calciolari.DataHub.Persistence.SqlMigrator.Apply(db);
         Calciolari.DataHub.Persistence.SqlMigrator.Apply(db);
+        Assert.Empty(Calciolari.DataHub.Persistence.SqlMigrator.Discover(typeof(string).Assembly));
+        Assert.Contains(Calciolari.DataHub.Persistence.SqlMigrator.Discover(typeof(Calciolari.DataHub.Persistence.SqlMigrator).Assembly),
+            m => m.Version == "V1");
+        db.Database.ExecuteSqlRaw("DELETE FROM schema_history");
+        Calciolari.DataHub.Persistence.SqlMigrator.Apply(db);
+        Calciolari.DataHub.Persistence.SqlMigrator.Apply(db, typeof(string).Assembly);
     }
 
     [Fact]

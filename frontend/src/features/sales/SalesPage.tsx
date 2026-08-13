@@ -6,14 +6,18 @@ import { StateMessage } from '@/shared/StateMessage'
 import { TableSkeleton } from '@/shared/TableSkeleton'
 import { Pagination } from '@/shared/Pagination'
 import { useAsync } from '@/shared/useAsync'
+import { readSessionFilter, writeSessionFilter } from '@/shared/sessionFilters'
+
+const FILTER_KEY = 'datahub.filters.sales'
 
 export function SalesPage() {
   const navigate = useNavigate()
-  const [productId, setProductId] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  const stored = readSessionFilter(FILTER_KEY, { productId: '', from: '', to: '' })
+  const [productId, setProductId] = useState(stored.productId)
+  const [from, setFrom] = useState(stored.from)
+  const [to, setTo] = useState(stored.to)
   const [page, setPage] = useState(0)
-  const [applied, setApplied] = useState({ productId: '', from: '', to: '' })
+  const [applied, setApplied] = useState(stored)
 
   const products = useAsync(() => listProducts({ size: 50 }), [])
   const sales = useAsync(
@@ -41,7 +45,9 @@ export function SalesPage() {
         onSubmit={(event) => {
           event.preventDefault()
           setPage(0)
-          setApplied({ productId, from, to })
+          const next = { productId, from, to }
+          writeSessionFilter(FILTER_KEY, next)
+          setApplied(next)
         }}
       >
         <select aria-label="Produto" value={productId} onChange={(event) => setProductId(event.target.value)}>
