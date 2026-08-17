@@ -78,7 +78,8 @@ describe('ImportFilePage', () => {
   it('shows loading, error and not-found states', async () => {
     vi.mocked(getImportFile).mockImplementation(() => new Promise(() => {}))
     renderPage()
-    expect(await screen.findByText('Carregando arquivo…')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Carregando arquivo')).toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
 
     vi.mocked(getImportFile).mockRejectedValue(new Error('file err'))
     renderPage()

@@ -52,7 +52,19 @@ describe('ProductDetailPage', () => {
   it('covers loading and error branches', async () => {
     vi.mocked(getProduct).mockImplementation(() => new Promise(() => {}))
     renderPage()
-    expect(await screen.findByText('Carregando produto…')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Carregando produto')).toBeInTheDocument()
+
+    vi.mocked(getProduct).mockResolvedValue({
+      id: 'p1',
+      externalSource: 'interpdv',
+      externalId: '41',
+      name: 'MOLHO',
+      unit: null,
+      firstSeenParseAttemptId: 'a1',
+    })
+    vi.mocked(getDashboard).mockImplementation(() => new Promise(() => {}))
+    renderPage()
+    expect(await screen.findByLabelText('Carregando produto')).toBeInTheDocument()
 
     vi.mocked(getProduct).mockRejectedValue(new Error('product err'))
     vi.mocked(getDashboard).mockResolvedValue({

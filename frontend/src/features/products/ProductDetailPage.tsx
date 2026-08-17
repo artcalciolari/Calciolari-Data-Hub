@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getDashboard, getProduct } from '@/shared/api'
 import { formatDateTime, formatMoney, formatQuantity, formatInteger } from '@/shared/format'
 import { Icon } from '@/shared/icons'
+import { Skeleton } from '@/shared/Skeleton'
 import { StateMessage } from '@/shared/StateMessage'
 import { DailyBars } from '@/shared/DailyBars'
 import { useAsync } from '@/shared/useAsync'
@@ -11,7 +12,7 @@ export function ProductDetailPage() {
   const product = useAsync(() => getProduct(id), [id])
   const dashboard = useAsync(() => getDashboard({ productId: id }), [id])
 
-  if (product.loading || dashboard.loading) return <StateMessage title="Carregando produto…" />
+  if (product.loading || dashboard.loading) return <ProductDetailSkeleton />
   if (product.error) return <StateMessage tone="error" title="Erro ao carregar produto">{product.error}</StateMessage>
   if (dashboard.error) return <StateMessage tone="error" title="Erro ao carregar métricas">{dashboard.error}</StateMessage>
   if (!product.data || !dashboard.data) return <StateMessage title="Produto não encontrado" />
@@ -54,6 +55,28 @@ export function ProductDetailPage() {
           />
         )}
       </section>
+    </div>
+  )
+}
+
+function ProductDetailSkeleton() {
+  return (
+    <div className="grid" aria-busy="true" aria-label="Carregando produto">
+      <Skeleton className="line w-40" />
+      <div className="page-head">
+        <div>
+          <Skeleton className="line w-60" />
+          <Skeleton className="line w-40" />
+        </div>
+      </div>
+      <section className="grid cards-4">
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+        <Skeleton className="card-skeleton" />
+      </section>
+      <Skeleton className="line w-80" />
+      <Skeleton className="section-skeleton" />
     </div>
   )
 }

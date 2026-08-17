@@ -2,15 +2,17 @@ import { Link, useParams } from 'react-router-dom'
 import { getImportFile } from '@/shared/api'
 import { formatDateTime } from '@/shared/format'
 import { Icon } from '@/shared/icons'
+import { Skeleton } from '@/shared/Skeleton'
 import { StateMessage } from '@/shared/StateMessage'
 import { StatusBadge } from '@/shared/StatusBadge'
+import { TableSkeleton } from '@/shared/TableSkeleton'
 import { useAsync } from '@/shared/useAsync'
 
 export function ImportFilePage() {
   const { jobId = '', fileId = '' } = useParams()
   const state = useAsync(() => getImportFile(jobId, fileId), [jobId, fileId])
 
-  if (state.loading) return <StateMessage title="Carregando arquivo…" />
+  if (state.loading) return <ImportFileSkeleton />
   if (state.error) return <StateMessage tone="error" title="Erro ao carregar arquivo">{state.error}</StateMessage>
   const file = state.data
   if (!file) return <StateMessage title="Arquivo não encontrado" />
@@ -93,6 +95,33 @@ export function ImportFilePage() {
       </section>
 
       <p className="muted">Concluído: {formatDateTime(file.completedAt)}</p>
+    </div>
+  )
+}
+
+function ImportFileSkeleton() {
+  return (
+    <div className="grid" aria-busy="true" aria-label="Carregando arquivo">
+      <Skeleton className="line w-40" />
+      <div className="page-head">
+        <div>
+          <Skeleton className="line w-60" />
+          <Skeleton className="line w-40" />
+        </div>
+      </div>
+      <section className="detail-top section">
+        <div className="d"><Skeleton className="line w-40" /><Skeleton className="line w-60" /></div>
+        <div className="d"><Skeleton className="line w-40" /><Skeleton className="line w-60" /></div>
+        <div className="d"><Skeleton className="line w-40" /><Skeleton className="line w-60" /></div>
+        <div className="d"><Skeleton className="line w-40" /><Skeleton className="line w-60" /></div>
+      </section>
+      <Skeleton className="section-skeleton" />
+      <section className="section">
+        <div className="section-head">
+          <Skeleton className="line w-40" />
+        </div>
+        <TableSkeleton rows={5} cols={7} />
+      </section>
     </div>
   )
 }
