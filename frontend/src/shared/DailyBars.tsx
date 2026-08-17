@@ -1,7 +1,7 @@
 import type { DailyPoint } from '@/shared/api'
 import { formatDate } from '@/shared/format'
 
-const MAX_VISIBLE_TICK_LABELS = 7
+const MAX_VISIBLE_TICK_LABELS = 5
 
 function visibleTickIndices(pointCount: number): Set<number> {
   const tickCount = Math.min(pointCount, MAX_VISIBLE_TICK_LABELS)

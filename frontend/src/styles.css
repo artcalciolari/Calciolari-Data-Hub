@@ -82,6 +82,7 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 12px 22px 0;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
 }
 
 .brand-block {
@@ -159,6 +160,7 @@ a {
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   background: var(--card);
   border-top: 1px solid var(--line);
 }
@@ -175,7 +177,7 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .page-head h1 {
@@ -188,9 +190,9 @@ a {
 
 .page-head .muted,
 .page-head p {
-  margin: 2px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .muted {
@@ -250,7 +252,7 @@ a {
 .section:nth-of-type(3) { animation-delay: 120ms; }
 
 .section-head {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -452,7 +454,7 @@ a.btn.secondary {
 .form-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -469,13 +471,14 @@ a.btn.secondary {
   display: grid;
   flex: 1 1 220px;
   min-width: min(100%, 220px);
-  gap: 4px;
+  gap: 8px;
 }
 
 .date-time-field label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.3;
 }
 
 .date-time-field input {
@@ -489,7 +492,7 @@ a.btn.secondary {
 .date-time-hint,
 .date-time-error {
   font-size: 11px;
-  line-height: 1.3;
+  line-height: 1.45;
 }
 
 .date-time-hint {
@@ -530,11 +533,11 @@ a.btn.secondary {
 
 /* ---------- bars ---------- */
 .bars {
-  height: 200px;
+  height: 220px;
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  padding: 18px 14px 10px;
+  padding: 24px 20px 16px;
 }
 
 .bar-wrap {
@@ -548,11 +551,26 @@ a.btn.secondary {
 }
 
 .bar-value {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--nocciola);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   white-space: nowrap;
+  line-height: 1.2;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+.bar-wrap:nth-child(-n+3) .bar-value {
+  align-self: flex-start;
+}
+
+.bar-wrap:nth-last-child(-n+3) .bar-value {
+  align-self: flex-end;
+}
+
+.bar-wrap:only-child .bar-value {
+  align-self: center;
 }
 
 .bar {
@@ -568,10 +586,17 @@ a.btn.secondary {
 }
 
 .bar-label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted);
-  margin-top: 5px;
+  margin-top: 8px;
+  min-height: 1.25em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
   white-space: nowrap;
+  line-height: 1.25;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 .sr-only {
@@ -634,6 +659,7 @@ a.btn.secondary {
   font-weight: 500;
   letter-spacing: -1px;
   margin-top: 8px;
+  line-height: 1.15;
 }
 
 .hero-sub {
@@ -686,7 +712,7 @@ a.btn.secondary {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: 7px;
   cursor: pointer;
   min-height: 44px;
@@ -715,7 +741,7 @@ a.btn.secondary {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #efe6da;
   transition: background-color 140ms ease;
 }
@@ -812,7 +838,7 @@ a.btn.secondary {
   grid-template-columns: 1fr auto;
   grid-template-areas: "id total" "when total";
   column-gap: 12px;
-  padding: 11px 16px;
+  padding: 13px 16px;
   border-bottom: 1px solid #efe6da;
   align-items: center;
   transition: background-color 140ms ease;
@@ -930,26 +956,86 @@ a.btn.secondary {
 @media (max-width: 760px) {
   .app-header {
     flex-direction: column;
-    align-items: flex-start;
-    padding: 12px 12px 0;
-    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px 4px;
+    padding-top: max(20px, env(safe-area-inset-top, 0px));
+    gap: 0;
   }
 
-  .app-main {
-    padding: 8px 12px 92px;
+  .brand-block {
+    width: 100%;
+    justify-content: center;
   }
 
   .brand-logo {
-    height: 34px;
-    max-width: min(200px, 72vw);
+    height: 40px;
+    max-width: min(220px, 78vw);
+    object-position: center;
+    margin-inline: auto;
+  }
+
+  .app-main {
+    padding: 28px 16px 108px;
+    padding-bottom: max(108px, calc(env(safe-area-inset-bottom, 0px) + 96px));
   }
 
   .page-head {
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
 
   .page-head h1 {
-    font-size: 20px;
+    font-size: 22px;
+  }
+
+  .grid {
+    gap: 16px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .form-row > input,
+  .form-row > select,
+  .form-row > .btn {
+    width: 100%;
+  }
+
+  .date-time-field {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .section-head {
+    padding: 16px 16px 14px;
+    gap: 10px;
+  }
+
+  .hero {
+    padding: 22px 18px;
+  }
+
+  .hero-v {
+    font-size: 34px;
+  }
+
+  .bars {
+    height: 232px;
+    gap: 4px;
+    padding: 28px 16px 18px;
+  }
+
+  .bar-value {
+    font-size: 10px;
+  }
+
+  .bar-label {
+    font-size: 10px;
   }
 
   .grid.cards-4 {
@@ -962,6 +1048,15 @@ a.btn.secondary {
 
   .hide-mobile {
     display: none;
+  }
+
+  .featured-body {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .card {
+    padding: 16px;
   }
 }
 
@@ -1042,6 +1137,16 @@ summary:focus-visible {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 4px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  min-height: 44px;
+  margin: -4px 0 0;
 }
 
 .login-shell {

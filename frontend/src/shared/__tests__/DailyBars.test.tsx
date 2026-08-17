@@ -42,7 +42,7 @@ describe('DailyBars', () => {
     expect(screen.getAllByTitle(/\/2026:/)).toHaveLength(31)
     expect(screen.getAllByRole('listitem')).toHaveLength(31)
     const labels = Array.from(container.querySelectorAll('.bar-label')).map((label) => label.textContent)
-    expect(labels.filter(Boolean)).toHaveLength(7)
+    expect(labels.filter(Boolean)).toHaveLength(5)
     expect(labels[0]).toBe('01/07')
     expect(labels[30]).toBe('31/07')
     expect(screen.getByRole('listitem', { name: '31/07/2026: R$ 31' })).toBeInTheDocument()
