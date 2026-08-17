@@ -53,6 +53,9 @@ describe('ProductDetailPage', () => {
     vi.mocked(getProduct).mockImplementation(() => new Promise(() => {}))
     const pendingProduct = renderPage()
     expect(await screen.findByLabelText('Carregando produto')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+    expect(screen.getByText('Faturamento')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Diário' })).toBeInTheDocument()
     pendingProduct.unmount()
 
     vi.mocked(getProduct).mockResolvedValue({

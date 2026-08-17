@@ -79,6 +79,10 @@ describe('ImportFilePage', () => {
     vi.mocked(getImportFile).mockImplementation(() => new Promise(() => {}))
     const pending = renderPage()
     expect(await screen.findByLabelText('Carregando arquivo')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Importação' })).toBeInTheDocument()
+    expect(screen.getByText('Parser')).toBeInTheDocument()
+    expect(screen.getByText('Pistas do nome do arquivo')).toBeInTheDocument()
+    expect(screen.getByText('Validações')).toBeInTheDocument()
     expect(screen.getByRole('table')).toBeInTheDocument()
     pending.unmount()
 

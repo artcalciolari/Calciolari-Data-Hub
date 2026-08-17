@@ -60,23 +60,35 @@ export function ProductDetailPage() {
 }
 
 function ProductDetailSkeleton() {
+  const kpiLabels = ['Faturamento', 'Quantidade', 'Vendas', 'Itens']
   return (
     <div className="grid" aria-busy="true" aria-label="Carregando produto">
-      <Skeleton className="line w-40" />
+      <Link className="back-link" to="/products"><Icon name="chevron-left" size={16} /> Produtos</Link>
       <div className="page-head">
         <div>
           <Skeleton className="line w-60" />
           <Skeleton className="line w-40" />
         </div>
       </div>
+
       <section className="grid cards-4">
-        <Skeleton className="card-skeleton" />
-        <Skeleton className="card-skeleton" />
-        <Skeleton className="card-skeleton" />
-        <Skeleton className="card-skeleton" />
+        {kpiLabels.map((label) => (
+          <div className="card" key={label}>
+            <div className="k">{label}</div>
+            <Skeleton className="line w-60" />
+          </div>
+        ))}
       </section>
+
       <Skeleton className="line w-80" />
-      <Skeleton className="section-skeleton" />
+
+      <section className="section">
+        <div className="section-head">
+          <h2>Diário</h2>
+          <span className="muted">quantidade por dia</span>
+        </div>
+        <div className="chart-skeleton" />
+      </section>
     </div>
   )
 }
