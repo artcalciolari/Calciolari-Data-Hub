@@ -359,6 +359,27 @@ tr.link-row:hover {
 .skeleton.line.w-40 { width: 40%; }
 .skeleton.line.w-80 { width: 80%; }
 
+.skeleton.badge-skeleton {
+  height: 26px;
+  width: 92px;
+  border-radius: 999px;
+}
+
+.hints-skeleton {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.chart-skeleton {
+  height: 168px;
+  margin: 12px 16px 16px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--soft) 25%, #f8f1e8 50%, var(--soft) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
 /* ---------- buttons ---------- */
 .btn {
   display: inline-flex;

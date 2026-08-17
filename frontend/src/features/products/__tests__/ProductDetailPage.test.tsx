@@ -51,8 +51,25 @@ describe('ProductDetailPage', () => {
 
   it('covers loading and error branches', async () => {
     vi.mocked(getProduct).mockImplementation(() => new Promise(() => {}))
-    renderPage()
-    expect(await screen.findByText('Carregando produto…')).toBeInTheDocument()
+    const pendingProduct = renderPage()
+    expect(await screen.findByLabelText('Carregando produto')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Produtos' })).toBeInTheDocument()
+    expect(screen.getByText('Faturamento')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Diário' })).toBeInTheDocument()
+    pendingProduct.unmount()
+
+    vi.mocked(getProduct).mockResolvedValue({
+      id: 'p1',
+      externalSource: 'interpdv',
+      externalId: '41',
+      name: 'MOLHO',
+      unit: null,
+      firstSeenParseAttemptId: 'a1',
+    })
+    vi.mocked(getDashboard).mockImplementation(() => new Promise(() => {}))
+    const pendingDashboard = renderPage()
+    expect(await screen.findByLabelText('Carregando produto')).toBeInTheDocument()
+    pendingDashboard.unmount()
 
     vi.mocked(getProduct).mockRejectedValue(new Error('product err'))
     vi.mocked(getDashboard).mockResolvedValue({
@@ -66,8 +83,9 @@ describe('ProductDetailPage', () => {
       daily: [],
       topProducts: [],
     })
-    renderPage()
+    const productError = renderPage()
     expect(await screen.findByText('product err')).toBeInTheDocument()
+    productError.unmount()
 
     vi.mocked(getProduct).mockResolvedValue({
       id: 'p1',
@@ -78,8 +96,9 @@ describe('ProductDetailPage', () => {
       firstSeenParseAttemptId: 'a1',
     })
     vi.mocked(getDashboard).mockRejectedValue(new Error('dash err'))
-    renderPage()
+    const dashError = renderPage()
     expect(await screen.findByText('dash err')).toBeInTheDocument()
+    dashError.unmount()
 
     vi.mocked(getDashboard).mockResolvedValue(null as never)
     renderPage()

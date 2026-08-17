@@ -2,15 +2,17 @@ import { Link, useParams } from 'react-router-dom'
 import { getImportFile } from '@/shared/api'
 import { formatDateTime } from '@/shared/format'
 import { Icon } from '@/shared/icons'
+import { Skeleton } from '@/shared/Skeleton'
 import { StateMessage } from '@/shared/StateMessage'
 import { StatusBadge } from '@/shared/StatusBadge'
+import { TableSkeleton } from '@/shared/TableSkeleton'
 import { useAsync } from '@/shared/useAsync'
 
 export function ImportFilePage() {
   const { jobId = '', fileId = '' } = useParams()
   const state = useAsync(() => getImportFile(jobId, fileId), [jobId, fileId])
 
-  if (state.loading) return <StateMessage title="Carregando arquivo…" />
+  if (state.loading) return <ImportFileSkeleton jobId={jobId} />
   if (state.error) return <StateMessage tone="error" title="Erro ao carregar arquivo">{state.error}</StateMessage>
   const file = state.data
   if (!file) return <StateMessage title="Arquivo não encontrado" />
@@ -93,6 +95,51 @@ export function ImportFilePage() {
       </section>
 
       <p className="muted">Concluído: {formatDateTime(file.completedAt)}</p>
+    </div>
+  )
+}
+
+function ImportFileSkeleton({ jobId }: { jobId: string }) {
+  const detailLabels = ['Parser', 'Versão', 'Registros', 'Status parse']
+  return (
+    <div className="grid" aria-busy="true" aria-label="Carregando arquivo">
+      <Link className="back-link" to={`/imports/${jobId}`}><Icon name="chevron-left" size={16} /> Importação</Link>
+      <div className="page-head">
+        <div>
+          <Skeleton className="line w-60" />
+          <Skeleton className="line w-40" />
+        </div>
+        <Skeleton className="badge-skeleton" />
+      </div>
+
+      <section className="detail-top section">
+        {detailLabels.map((label) => (
+          <div className="d" key={label}>
+            <div className="label">{label}</div>
+            <Skeleton className="line w-60" />
+          </div>
+        ))}
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <h2>Pistas do nome do arquivo</h2>
+          <span className="muted">INFERRED_DATA — não substitui o conteúdo</span>
+        </div>
+        <div className="hints-skeleton">
+          <Skeleton className="line w-80" />
+          <Skeleton className="line w-60" />
+          <Skeleton className="line w-40" />
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <h2>Validações</h2>
+          <Skeleton className="line w-40" />
+        </div>
+        <TableSkeleton rows={5} cols={7} />
+      </section>
     </div>
   )
 }

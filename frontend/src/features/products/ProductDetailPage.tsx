@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getDashboard, getProduct } from '@/shared/api'
 import { formatDateTime, formatMoney, formatQuantity, formatInteger } from '@/shared/format'
 import { Icon } from '@/shared/icons'
+import { Skeleton } from '@/shared/Skeleton'
 import { StateMessage } from '@/shared/StateMessage'
 import { DailyBars } from '@/shared/DailyBars'
 import { useAsync } from '@/shared/useAsync'
@@ -11,7 +12,7 @@ export function ProductDetailPage() {
   const product = useAsync(() => getProduct(id), [id])
   const dashboard = useAsync(() => getDashboard({ productId: id }), [id])
 
-  if (product.loading || dashboard.loading) return <StateMessage title="Carregando produto…" />
+  if (product.loading || dashboard.loading) return <ProductDetailSkeleton />
   if (product.error) return <StateMessage tone="error" title="Erro ao carregar produto">{product.error}</StateMessage>
   if (dashboard.error) return <StateMessage tone="error" title="Erro ao carregar métricas">{dashboard.error}</StateMessage>
   if (!product.data || !dashboard.data) return <StateMessage title="Produto não encontrado" />
@@ -53,6 +54,40 @@ export function ProductDetailPage() {
             ariaLabel="Série diária do produto"
           />
         )}
+      </section>
+    </div>
+  )
+}
+
+function ProductDetailSkeleton() {
+  const kpiLabels = ['Faturamento', 'Quantidade', 'Vendas', 'Itens']
+  return (
+    <div className="grid" aria-busy="true" aria-label="Carregando produto">
+      <Link className="back-link" to="/products"><Icon name="chevron-left" size={16} /> Produtos</Link>
+      <div className="page-head">
+        <div>
+          <Skeleton className="line w-60" />
+          <Skeleton className="line w-40" />
+        </div>
+      </div>
+
+      <section className="grid cards-4">
+        {kpiLabels.map((label) => (
+          <div className="card" key={label}>
+            <div className="k">{label}</div>
+            <Skeleton className="line w-60" />
+          </div>
+        ))}
+      </section>
+
+      <Skeleton className="line w-80" />
+
+      <section className="section">
+        <div className="section-head">
+          <h2>Diário</h2>
+          <span className="muted">quantidade por dia</span>
+        </div>
+        <div className="chart-skeleton" />
       </section>
     </div>
   )
