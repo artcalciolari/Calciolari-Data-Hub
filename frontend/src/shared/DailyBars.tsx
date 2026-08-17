@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import type { DailyPoint } from '@/shared/api'
-import { formatDate } from '@/shared/format'
+import { formatDate, formatMoney, formatQuantity } from '@/shared/format'
 
 const MAX_VISIBLE_TICK_LABELS = 5
 const OUTLIER_RATIO = 2.2
@@ -36,6 +36,31 @@ function indexFromPointer(clientX: number, rect: DOMRect, count: number): number
   return Math.max(0, Math.min(count - 1, Math.floor(ratio * count)))
 }
 
+function tooltipData(day: DailyPoint): { date: string; revenue: string; quantity: string } {
+  return {
+    date: formatDate(day.date),
+    revenue: formatMoney(day.revenue),
+    quantity: formatQuantity(day.quantity),
+  }
+}
+
+function DailyBarsTooltip({ day }: { day: DailyPoint }) {
+  const data = tooltipData(day)
+  return (
+    <span className="bar-tip" role="tooltip">
+      <span className="bar-tip-date">{data.date}</span>
+      <span className="bar-tip-row">
+        <span>Faturamento</span>
+        <strong>{data.revenue}</strong>
+      </span>
+      <span className="bar-tip-row">
+        <span>Quantidade</span>
+        <strong>{data.quantity}</strong>
+      </span>
+    </span>
+  )
+}
+
 export function DailyBars({
   points,
   metric,
@@ -51,7 +76,9 @@ export function DailyBars({
 }) {
   const lastIndex = Math.max(0, points.length - 1)
   const [selectedIndex, setSelectedIndex] = useState(lastIndex)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const selected = Math.min(Math.max(0, selectedIndex), lastIndex)
+  const hovered = hoveredIndex == null ? null : Math.min(Math.max(0, hoveredIndex), lastIndex)
 
   if (points.length === 0) {
     return null
@@ -92,6 +119,7 @@ export function DailyBars({
   function selectFromPointer(event: PointerEvent<HTMLDivElement>) {
     const next = indexFromPointer(event.clientX, event.currentTarget.getBoundingClientRect(), points.length)
     if (next == null) return
+    setHoveredIndex(next)
     clampSelect(next)
   }
 
@@ -152,6 +180,7 @@ export function DailyBars({
           aria-valuetext={`${selectedBar.date}: ${selectedBar.formattedValue}`}
           onPointerDown={onPlotPointerDown}
           onPointerMove={onPlotPointerMove}
+          onPointerLeave={() => setHoveredIndex(null)}
           onKeyDown={onPlotKeyDown}
         >
           <div className="chart-grid" aria-hidden="true">
@@ -166,13 +195,20 @@ export function DailyBars({
           />
           <div className="bars">
             {barDetails.map(({ point, date, formattedValue, exceedsScale, height, value }, index) => {
+              const isSelected = index === selected
+              const isHovered = index === hovered
               const className = [
                 'bar',
-                index === selected ? 'is-selected' : '',
+                isSelected ? 'is-selected' : '',
+                isHovered ? 'is-hovered' : '',
                 exceedsScale ? 'is-clipped' : '',
               ].filter(Boolean).join(' ')
               return (
-                <div key={point.date} className="bar-wrap">
+                <div
+                  key={point.date}
+                  className="bar-wrap"
+                  onPointerEnter={() => setHoveredIndex(index)}
+                >
                   <div
                     className={className}
                     style={{
@@ -181,6 +217,7 @@ export function DailyBars({
                     } as CSSProperties}
                     title={`${date}: ${formattedValue}`}
                   />
+                  {isHovered && <DailyBarsTooltip day={point} />}
                 </div>
               )
             })}

@@ -123,7 +123,7 @@ describe('DailyBars', () => {
     })
     fireEvent.pointerDown(plot, { clientX: 20, pointerId: 1 })
     expect(plot).toHaveAttribute('aria-valuenow', '0')
-    expect(screen.getByText('01/07/2026')).toBeInTheDocument()
+    expect(screen.getByText('01/07/2026', { selector: '.chart-readout-date' })).toBeInTheDocument()
 
     fireEvent.pointerMove(plot, { clientX: 20, buttons: 0 })
     expect(plot).toHaveAttribute('aria-valuenow', '0')
@@ -160,7 +160,7 @@ describe('DailyBars', () => {
 
     fireEvent.keyDown(plot, { key: 'ArrowLeft' })
     expect(plot).toHaveAttribute('aria-valuenow', '1')
-    expect(screen.getByText('02/07/2026')).toBeInTheDocument()
+    expect(screen.getByText('02/07/2026', { selector: '.chart-readout-date' })).toBeInTheDocument()
 
     fireEvent.keyDown(plot, { key: 'Home' })
     expect(plot).toHaveAttribute('aria-valuenow', '0')
@@ -173,6 +173,43 @@ describe('DailyBars', () => {
 
     fireEvent.keyDown(plot, { key: 'PageDown' })
     expect(plot).toHaveAttribute('aria-valuenow', '2')
+  })
+
+  it('shows a hover tooltip with revenue and quantity for the hovered bar', () => {
+    renderChart([
+      { date: '2026-07-01', quantity: '2.5', revenue: '10' },
+      { date: '2026-07-02', quantity: '4', revenue: '20' },
+      { date: '2026-07-03', quantity: '1', revenue: '30' },
+    ])
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    const plot = screen.getByRole('slider', { name: 'chart' })
+    vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 160,
+      width: 300,
+      height: 160,
+      toJSON: () => ({}),
+    })
+    fireEvent.pointerDown(plot, { clientX: 150, pointerId: 1 })
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    expect(screen.getByText('Faturamento')).toBeInTheDocument()
+    expect(screen.getByText('Quantidade')).toBeInTheDocument()
+    expect(screen.getByText('R$ 20')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument()
+
+    fireEvent.pointerLeave(plot)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+    const secondWrap = screen.getAllByTitle(/\/2026:/).map((bar) => bar.parentElement)[1]
+    fireEvent.pointerEnter(secondWrap!)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    expect(screen.getByText('R$ 20,00', { selector: '.bar-tip strong' })).toBeInTheDocument()
+    fireEvent.pointerLeave(plot)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('renders quantity values and keeps selection when the series shrinks', () => {
