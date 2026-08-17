@@ -276,6 +276,8 @@ describe('DailyBars (mobile)', () => {
     expect(dialog).toHaveTextContent('Quantidade')
     expect(dialog).toHaveTextContent('R$ 20,00')
     expect(screen.getByText('Toque no gráfico para ver o dia')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dia anterior' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dia seguinte' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Fechar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -303,6 +305,55 @@ describe('DailyBars (mobile)', () => {
     const overlay = screen.getByRole('dialog', { name: '01/07/2026' }).parentElement
     fireEvent.click(overlay!)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('cycles days inside the sheet with buttons, keyboard, and swipe', () => {
+    renderChart([
+      { date: '2026-07-01', quantity: '1', revenue: '10' },
+      { date: '2026-07-02', quantity: '2', revenue: '20' },
+      { date: '2026-07-03', quantity: '3', revenue: '30' },
+    ])
+    const plot = screen.getByRole('slider', { name: 'chart' })
+    mockPlotWidth(plot)
+    fireEvent.pointerDown(plot, { clientX: 150, pointerId: 1 })
+    fireEvent.click(plot, { clientX: 150 })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia anterior' }))
+    expect(screen.getByRole('dialog', { name: '01/07/2026' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dia anterior' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Dia seguinte' })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dia seguinte' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dia seguinte' }))
+    expect(screen.getByRole('dialog', { name: '03/07/2026' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dia seguinte' })).toBeDisabled()
+
+    fireEvent.keyDown(document, { key: 'ArrowLeft' })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'ArrowRight' })
+    expect(screen.getByRole('dialog', { name: '03/07/2026' })).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'ArrowLeft' })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
+
+    const sheet = document.querySelector('.chart-sheet')!
+    fireEvent.touchStart(sheet, { touches: [{ clientX: 200 }] })
+    fireEvent.touchEnd(sheet, { changedTouches: [{ clientX: 100 }] })
+    expect(screen.getByRole('dialog', { name: '03/07/2026' })).toBeInTheDocument()
+
+    fireEvent.touchStart(sheet, { touches: [{ clientX: 100 }] })
+    fireEvent.touchEnd(sheet, { changedTouches: [{ clientX: 200 }] })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
+
+    fireEvent.touchStart(sheet, { touches: [{ clientX: 100 }] })
+    fireEvent.touchEnd(sheet, { changedTouches: [{ clientX: 120 }] })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
+
+    const bareSheet = document.querySelector('.chart-sheet')!
+    fireEvent.touchEnd(bareSheet, { changedTouches: [{ clientX: 0 }] })
+    expect(screen.getByRole('dialog', { name: '02/07/2026' })).toBeInTheDocument()
   })
 
   it('ignores pointer drag on mobile and shows fewer tick labels', () => {

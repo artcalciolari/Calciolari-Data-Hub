@@ -788,9 +788,15 @@ a.btn.secondary {
 
 .chart-sheet-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+
+.chart-sheet-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
 }
 
 .chart-sheet-label {
@@ -807,8 +813,19 @@ a.btn.secondary {
   font-weight: 500;
 }
 
+.chart-sheet-nav {
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+}
+
 .chart-sheet-close {
   min-height: 44px;
+  width: 100%;
+  margin-top: 14px;
 }
 
 .chart-sheet-stats {

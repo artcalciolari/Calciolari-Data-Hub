@@ -1,7 +1,8 @@
-import { useEffect, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import type { DailyPoint } from '@/shared/api'
 import { formatDate, formatMoney, formatQuantity } from '@/shared/format'
+import { Icon } from '@/shared/icons'
 import { useMediaQuery } from '@/shared/useMediaQuery'
 
 const DESKTOP_TICK_LABELS = 5
@@ -76,11 +77,21 @@ function DailyBarsDayDialog({
   day,
   open,
   onClose,
+  onPrev,
+  onNext,
+  canPrev,
+  canNext,
 }: {
   day: DailyPoint | null
   open: boolean
   onClose: () => void
+  onPrev: () => void
+  onNext: () => void
+  canPrev: boolean
+  canNext: boolean
 }) {
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -88,13 +99,44 @@ function DailyBarsDayDialog({
         onClose()
         return
       }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        onPrev()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        onNext()
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  }, [open, onClose, onPrev, onNext])
 
   if (!open || !day) return null
   const data = tooltipData(day)
+
+  function onTouchStart(event: TouchEvent<HTMLDivElement>) {
+    setTouchStart(event.touches[0].clientX)
+  }
+
+  function onTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (touchStart == null) {
+      setTouchStart(null)
+      return
+    }
+    const end = event.changedTouches[0].clientX
+    const delta = end - touchStart
+    if (Math.abs(delta) >= 40) {
+      if (delta > 0) {
+        onPrev()
+      } else {
+        onNext()
+      }
+    }
+    setTouchStart(null)
+  }
+
   return createPortal(
     <div className="chart-sheet-overlay" role="presentation" onClick={onClose}>
       <div
@@ -103,19 +145,39 @@ function DailyBarsDayDialog({
         aria-modal="true"
         aria-label={data.date}
         onClick={(event) => event.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
       >
         <div className="chart-sheet-head">
-          <div>
+          <button
+            type="button"
+            className="btn secondary chart-sheet-nav"
+            aria-label="Dia anterior"
+            onClick={onPrev}
+            disabled={!canPrev}
+          >
+            <Icon name="chevron-left" size={18} />
+          </button>
+          <div className="chart-sheet-title">
             <p className="chart-sheet-label">Dia</p>
             <h3>{data.date}</h3>
           </div>
-          <button type="button" className="btn secondary chart-sheet-close" onClick={onClose}>
-            Fechar
+          <button
+            type="button"
+            className="btn secondary chart-sheet-nav"
+            aria-label="Dia seguinte"
+            onClick={onNext}
+            disabled={!canNext}
+          >
+            <Icon name="chevron-right" size={18} />
           </button>
         </div>
         <div className="chart-sheet-stats">
           <DayValues day={day} />
         </div>
+        <button type="button" className="btn primary chart-sheet-close" onClick={onClose}>
+          Fechar
+        </button>
       </div>
     </div>,
     document.body,
@@ -188,6 +250,14 @@ export function DailyBars({
 
   function clampSelect(next: number) {
     setSelectedIndex(Math.max(0, Math.min(lastIndex, next)))
+  }
+
+  function goPrev() {
+    clampSelect(selected - 1)
+  }
+
+  function goNext() {
+    clampSelect(selected + 1)
   }
 
   function selectFromPointer(event: PointerEvent<HTMLDivElement>, openSheet: boolean) {
@@ -355,6 +425,10 @@ export function DailyBars({
         day={points[selected]}
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
+        onPrev={goPrev}
+        onNext={goNext}
+        canPrev={selected > 0}
+        canNext={selected < lastIndex}
       />
     </div>
   )
