@@ -471,7 +471,7 @@ a.btn.secondary {
   display: grid;
   flex: 1 1 220px;
   min-width: min(100%, 220px);
-  gap: 8px;
+  gap: 10px;
 }
 
 .date-time-field label {
@@ -590,11 +590,9 @@ a.btn.secondary {
   color: var(--muted);
   margin-top: 8px;
   min-height: 1.25em;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
   line-height: 1.25;
+  white-space: nowrap;
+  overflow: visible;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
@@ -958,8 +956,8 @@ a.btn.secondary {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px 16px 4px;
-    padding-top: max(20px, env(safe-area-inset-top, 0px));
+    padding: 22px 18px 8px;
+    padding-top: max(22px, env(safe-area-inset-top, 0px));
     gap: 0;
   }
 
@@ -976,7 +974,7 @@ a.btn.secondary {
   }
 
   .app-main {
-    padding: 28px 16px 108px;
+    padding: 36px 18px 108px;
     padding-bottom: max(108px, calc(env(safe-area-inset-bottom, 0px) + 96px));
   }
 
@@ -995,7 +993,7 @@ a.btn.secondary {
   .form-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
+    gap: 18px;
   }
 
   .form-row > input,
@@ -1025,9 +1023,9 @@ a.btn.secondary {
   }
 
   .bars {
-    height: 232px;
+    height: 240px;
     gap: 4px;
-    padding: 28px 16px 18px;
+    padding: 28px 18px 22px;
   }
 
   .bar-value {

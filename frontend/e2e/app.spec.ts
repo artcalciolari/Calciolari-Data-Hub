@@ -59,10 +59,10 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     expect(headingBox).toBeTruthy()
     expect(viewport).toBeTruthy()
     expect(Math.abs(logoBox!.x + logoBox!.width / 2 - viewport!.width / 2)).toBeLessThan(24)
-    expect(headingBox!.y - (logoBox!.y + logoBox!.height)).toBeGreaterThan(20)
+    expect(headingBox!.y - (logoBox!.y + logoBox!.height)).toBeGreaterThan(24)
 
-    const fromBox = await page.getByLabel('De').boundingBox()
-    const toBox = await page.getByLabel('Até').boundingBox()
+    const fromBox = await page.getByRole('textbox', { name: 'De' }).boundingBox()
+    const toBox = await page.getByRole('textbox', { name: 'Até' }).boundingBox()
     const filterBox = await page.getByRole('button', { name: 'Filtrar' }).boundingBox()
     expect(fromBox).toBeTruthy()
     expect(toBox).toBeTruthy()
