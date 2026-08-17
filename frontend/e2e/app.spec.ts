@@ -73,6 +73,21 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     expect(filterBox!.y).toBeGreaterThan(toBox!.y + toBox!.height - 8)
   })
 
+  test('desktop dashboard leaves space between logo and Resumo', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop', 'desktop layout only')
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Resumo' })).toBeVisible()
+
+    const logo = page.getByRole('img', { name: /Calciolari Cucina Italiana/i })
+    const heading = page.getByRole('heading', { name: 'Resumo' })
+    const logoBox = await logo.boundingBox()
+    const headingBox = await heading.boundingBox()
+    expect(logoBox).toBeTruthy()
+    expect(headingBox).toBeTruthy()
+    expect(headingBox!.y - (logoBox!.y + logoBox!.height)).toBeGreaterThan(32)
+    expect(Math.abs(headingBox!.x - logoBox!.x)).toBeLessThan(8)
+  })
+
   test('dashboard has no serious or critical axe violations', async ({ page }) => {
     test.skip(test.info().project.name !== 'desktop', 'axe audit on desktop viewport')
     await page.goto('/')

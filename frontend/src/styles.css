@@ -81,8 +81,11 @@ a {
   gap: 12px;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 22px 0;
-  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px 22px 8px;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
 }
 
 .brand-block {
@@ -147,7 +150,7 @@ a {
 
 .app-main {
   flex: 1;
-  padding: 10px 22px 96px;
+  padding: 28px 22px 56px;
   max-width: 1180px;
   width: 100%;
   margin: 0 auto;
@@ -177,7 +180,7 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .page-head h1 {
@@ -1047,6 +1050,23 @@ a.btn.secondary {
 
   .bottom-nav {
     display: none;
+  }
+
+  .app-header {
+    padding: 20px 28px 10px;
+    padding-top: max(20px, env(safe-area-inset-top, 0px));
+  }
+
+  .app-main {
+    padding: 40px 28px 56px;
+  }
+
+  .page-head {
+    margin-bottom: 20px;
+  }
+
+  .grid {
+    gap: 16px;
   }
 }
 
