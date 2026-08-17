@@ -43,13 +43,13 @@ describe('SalesPage', () => {
     renderPage()
     expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Produto'), { target: { value: 'p1' } })
-    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-07-01T00:00' } })
-    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-07-31T23:59' } })
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '01/07/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '31/07/2026 23:59' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
     expect(listSales).toHaveBeenLastCalledWith({
       productId: 'p1',
       from: '2026-07-01T00:00',
-      to: '2026-07-31T23:59',
+      to: '2026-07-31T23:59:59',
       page: 0,
       size: 50,
     })
@@ -62,13 +62,55 @@ describe('SalesPage', () => {
     )
     renderPage()
     expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
+    expect(screen.getByLabelText('De')).toHaveValue('01/07/2026 00:00')
+    expect(screen.getByLabelText('Até')).toHaveValue('31/07/2026 23:59:59')
     expect(listSales).toHaveBeenCalledWith({
       productId: 'p1',
       from: '2026-07-01T00:00',
-      to: '2026-07-31T23:59',
+      to: '2026-07-31T23:59:59',
       page: 0,
       size: 50,
     })
+  })
+
+  it('does not apply a persisted inverted range', async () => {
+    sessionStorage.setItem(
+      'datahub.filters.sales',
+      JSON.stringify({ productId: 'p1', from: '2026-07-02T00:00', to: '2026-07-01T23:59' }),
+    )
+    renderPage()
+    expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
+    expect(screen.getByText('Até deve ser igual ou posterior a De.')).toBeInTheDocument()
+    expect(listSales).not.toHaveBeenCalledWith(expect.objectContaining({
+      from: '2026-07-02T00:00',
+      to: '2026-07-01T23:59:59',
+    }))
+  })
+
+  it('shows an error and does not submit incomplete date filters', async () => {
+    renderPage()
+    expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '01/07/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '31/07/2026' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('dd/mm/yyyy')
+    expect(listSales).not.toHaveBeenCalledWith(expect.objectContaining({ to: '31/07/2026' }))
+  })
+
+  it('rejects an inverted range and associates the error with Até', async () => {
+    renderPage()
+    expect(await screen.findByRole('link', { name: '101' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '02/07/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '01/07/2026 23:59' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(screen.getByText('Até deve ser igual ou posterior a De.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Até')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Até')).toHaveAttribute('aria-describedby', 'sales-to-hint sales-to-error')
+    expect(listSales).not.toHaveBeenCalledWith(expect.objectContaining({
+      from: '2026-07-02T00:00',
+      to: '2026-07-01T23:59:59',
+    }))
+    expect(sessionStorage.getItem('datahub.filters.sales')).toBeNull()
   })
 
   it('shows loading, error and empty states', async () => {

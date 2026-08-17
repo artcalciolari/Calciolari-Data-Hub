@@ -65,14 +65,16 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: 'Ver vendas' })).toHaveAttribute('href', '/sales')
     expect(screen.getAllByRole('link', { name: /MOLHO POMODORO/ })[0]).toHaveAttribute('href', '/products/p1')
     expect(screen.getByRole('link', { name: /#101/ })).toHaveAttribute('href', '/sales/s1')
+    expect(screen.getByLabelText('De')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('De')).toHaveAttribute('placeholder', 'dd/mm/yyyy HH:mm')
   })
 
   it('switches the daily chart metric from revenue to quantity', async () => {
     renderPage()
-    expect(await screen.findByText(/210,50/)).toBeInTheDocument()
+    expect(await screen.findByText('R$ 210,50', { selector: '.bar-value' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Qtd' }))
     expect(screen.getByRole('button', { name: 'Qtd' })).toHaveClass('active')
-    expect(screen.getByText(/^5$/)).toBeInTheDocument()
+    expect(screen.getByText(/^5$/, { selector: '.bar-value' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'R$' }))
     expect(screen.getByRole('button', { name: 'R$' })).toHaveClass('active')
   })
@@ -114,17 +116,50 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Nenhum produto publicado ainda.')).toBeInTheDocument()
     expect(screen.getByText('Nenhuma venda publicada ainda.')).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
-    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-07-01T00:00' } })
-    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-07-31T23:59' } })
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '01/07/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '31/07/2026 23:59' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
-    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
+    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59:59' })
   })
 
   it('restores persisted date filters', async () => {
     sessionStorage.setItem('datahub.filters.dashboard', JSON.stringify({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' }))
     renderPage()
     expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
-    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59' })
+    expect(screen.getByLabelText('De')).toHaveValue('01/07/2026 00:00')
+    expect(screen.getByLabelText('Até')).toHaveValue('31/07/2026 23:59:59')
+    expect(getDashboard).toHaveBeenCalledWith({ from: '2026-07-01T00:00', to: '2026-07-31T23:59:59' })
+  })
+
+  it('does not apply a persisted inverted range', async () => {
+    sessionStorage.setItem('datahub.filters.dashboard', JSON.stringify({ from: '2026-07-02T00:00', to: '2026-07-01T23:59' }))
+    renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
+    expect(screen.getByText('Até deve ser igual ou posterior a De.')).toBeInTheDocument()
+    expect(getDashboard).not.toHaveBeenCalledWith({ from: '2026-07-02T00:00', to: '2026-07-01T23:59:59' })
+  })
+
+  it('shows an error and does not submit malformed date filters', async () => {
+    renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '31/02/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '31/07/2026' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(screen.getAllByRole('alert')).toHaveLength(2)
+    expect(getDashboard).not.toHaveBeenCalledWith({ from: '31/02/2026 00:00', to: '31/07/2026' })
+  })
+
+  it('rejects an inverted range and associates the error with Até', async () => {
+    renderPage()
+    expect(await screen.findByText('Faturamento no período')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '02/07/2026 00:00' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '01/07/2026 23:59' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtrar' }))
+    expect(screen.getByText('Até deve ser igual ou posterior a De.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Até')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Até')).toHaveAttribute('aria-describedby', 'dashboard-to-hint dashboard-to-error')
+    expect(getDashboard).not.toHaveBeenCalledWith({ from: '2026-07-02T00:00', to: '2026-07-01T23:59:59' })
+    expect(sessionStorage.getItem('datahub.filters.dashboard')).toBeNull()
   })
 
   it('shows recent sales loading state', async () => {

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDateTime, formatInteger, formatMoney, formatPercent, formatQuantity, decimal, sumStrings } from '../format'
+import {
+  dateTimeInputError,
+  decimal,
+  formatDate,
+  formatDateTime,
+  formatDateTimeInput,
+  formatInteger,
+  formatMoney,
+  formatPercent,
+  formatQuantity,
+  isDateTimeRangeInverted,
+  normalizeDateTimeFilter,
+  parseDateTimeInput,
+  sumStrings,
+} from '../format'
 
 describe('format', () => {
   it('formats money as BRL pt-BR without float drift', () => {
@@ -37,6 +51,42 @@ describe('format', () => {
     expect(formatDate('2026-07-19')).toBe('19/07/2026')
     expect(formatDate(null)).toBe('—')
     expect(formatDate('bad')).toBe('bad')
+  })
+
+  it('formats and parses date-time filters in Brazilian order without timezone conversion', () => {
+    expect(formatDateTimeInput('2026-07-19T13:07')).toBe('19/07/2026 13:07')
+    expect(formatDateTimeInput('2026-07-19T13:07:03')).toBe('19/07/2026 13:07:03')
+    expect(formatDateTimeInput(null)).toBe('')
+    expect(formatDateTimeInput('not-iso')).toBe('not-iso')
+
+    expect(parseDateTimeInput('19/07/2026 13:07')).toBe('2026-07-19T13:07')
+    expect(parseDateTimeInput('19/07/2026 13:07:03')).toBe('2026-07-19T13:07:03')
+    expect(parseDateTimeInput('19/07/2026 13:07', { endOfMinute: true })).toBe('2026-07-19T13:07:59')
+    expect(parseDateTimeInput('19/07/2026 13:07:03', { endOfMinute: true })).toBe('2026-07-19T13:07:03')
+    expect(parseDateTimeInput('1/7/2026 9:5:3')).toBe('2026-07-01T09:05:03')
+    expect(parseDateTimeInput('2026-07-19T13:07')).toBe('2026-07-19T13:07')
+    expect(parseDateTimeInput('')).toBe('')
+    expect(parseDateTimeInput('19/07/2026')).toBeNull()
+    expect(parseDateTimeInput('31/02/2026 13:07')).toBeNull()
+    expect(parseDateTimeInput('29/02/2024 13:07')).toBe('2024-02-29T13:07')
+    expect(parseDateTimeInput('29/02/1900 13:07')).toBeNull()
+    expect(parseDateTimeInput('31/04/2026 13:07')).toBeNull()
+    expect(parseDateTimeInput('19/07/2026 24:00')).toBeNull()
+    expect(parseDateTimeInput('19/07/2026 13:60')).toBeNull()
+    expect(parseDateTimeInput('19/07/2026 13:07:60')).toBeNull()
+    expect(parseDateTimeInput('19/07/2026 13:07 junk')).toBeNull()
+
+    expect(normalizeDateTimeFilter('2026-07-19T13:07')).toBe('2026-07-19T13:07')
+    expect(normalizeDateTimeFilter('19/07/2026 13:07')).toBe('2026-07-19T13:07')
+    expect(normalizeDateTimeFilter('2026-07-19T13:07', { endOfMinute: true })).toBe('2026-07-19T13:07:59')
+    expect(normalizeDateTimeFilter('2026-07-19T13:07:03', { endOfMinute: true })).toBe('2026-07-19T13:07:03')
+    expect(normalizeDateTimeFilter('not-a-date')).toBe('')
+    expect(dateTimeInputError('')).toBeUndefined()
+    expect(dateTimeInputError('19/07/2026 13:07')).toBeUndefined()
+    expect(dateTimeInputError('19/07/2026')).toContain('dd/mm/yyyy')
+    expect(isDateTimeRangeInverted('2026-07-02T00:00', '2026-07-01T23:59:59')).toBe(true)
+    expect(isDateTimeRangeInverted('2026-07-01T00:00', '2026-07-01T00:00:59')).toBe(false)
+    expect(isDateTimeRangeInverted('', '2026-07-01T00:00:59')).toBe(false)
   })
 
   it('formats integers with pt-BR grouping', () => {

@@ -1,8 +1,8 @@
-# Local PostgreSQL 16 — same major as CI (.github/workflows/ci.yml).
-# Immutable .QRP bytes are NOT stored in this compose file. The API process
-# writes them on the host at DATAHUB_RAW_STORAGE_ROOT (default ./data/raw-storage,
-# gitignored). Backup/restore treats PostgreSQL + that directory as one unit
-# (see scripts/backup.sh and docs/ops.md).
+# Local stack: PostgreSQL 16 — same major as CI (.github/workflows/ci.yml) —
+# plus the ASP.NET Core API and Vite development server. Immutable .QRP bytes
+# are written through to DATAHUB_RAW_STORAGE_ROOT on the host (default
+# ./data/raw-storage, gitignored). Backup/restore treats PostgreSQL + that
+# directory as one unit (see scripts/backup.sh and docs/ops.md).
 services:
   postgres:
     image: postgres:16
@@ -12,7 +12,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-datahub}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - datahub_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,6 +20,55 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      DATAHUB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-datahub};Username=${POSTGRES_USER:-datahub};Password=${POSTGRES_PASSWORD:-change-me}"
+      DATAHUB_RAW_STORAGE_ROOT: /app/data/raw-storage
+      DATAHUB_IMPORTS_MAX_FILES: "${DATAHUB_IMPORTS_MAX_FILES:-20}"
+      DATAHUB_IMPORTS_MAX_FILE_BYTES: "${DATAHUB_IMPORTS_MAX_FILE_BYTES:-33554432}"
+      DATAHUB_PARSER_MAX_BYTES: "${DATAHUB_PARSER_MAX_BYTES:-33554432}"
+      DATAHUB_SECURITY_ENABLED: "${DATAHUB_SECURITY_ENABLED:-false}"
+      DATAHUB_SECURITY_USERS: "${DATAHUB_SECURITY_USERS:-}"
+      DATAHUB_CORS_ALLOWED_ORIGINS: "${DATAHUB_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - type: bind
+        source: "${DATAHUB_RAW_STORAGE_ROOT:-./data/raw-storage}"
+        target: /app/data/raw-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1:8080/actuator/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_BASE: http://backend:8080
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
 volumes:
   datahub_pgdata:

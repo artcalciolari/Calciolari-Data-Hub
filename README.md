@@ -40,11 +40,23 @@ npx playwright test  # E2E (mobile + desktop); API em :8080 já semeada (scripts
 
 ## Infra
 
+Compose is the primary local start path. It runs PostgreSQL, the backend, and
+the Vite development server together; the backend reaches PostgreSQL at the
+internal service name `postgres`, while browser requests stay same-origin at
+the frontend and are proxied to `backend`.
+
 ```bash
 cp .env.example .env
-docker compose up -d   # PostgreSQL 16 em :5432 (quando Docker estiver disponível)
+# Stop direct-run services using 5432/8080/5173 first, or override them in .env.
+docker compose up -d --build   # UI :5173, API :8080, PostgreSQL :5432
+docker compose down             # stop the stack; keep data volumes
+# docker compose down -v         # also remove PostgreSQL data (destructive)
 # bytes brutos: DATAHUB_RAW_STORAGE_ROOT (default ./data/raw-storage no host)
 ```
+
+Health checks gate startup: the backend waits for healthy PostgreSQL and the
+frontend waits for a healthy backend. Direct backend/frontend commands above
+remain available when Compose is not needed.
 
 ## Backup / restore
 

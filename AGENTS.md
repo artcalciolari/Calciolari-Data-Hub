@@ -18,6 +18,6 @@ Base VM toolchains: **.NET 10** (install the SDK if missing), **Node 22 / npm**,
 
 - Backend: `cd backend && dotnet test` (needs PostgreSQL at `127.0.0.1:5432` / `datahub` / `change-me`), `dotnet run --project src/Calciolari.DataHub` (port **8080**).
 - Frontend: `cd frontend && npm install && npm run dev` (Vite; proxies `/api` and `/actuator` to `:8080`).
-- Local infra: `docker compose up` to start PostgreSQL.
+- Local infra: `docker compose up -d --build` starts PostgreSQL, backend, and frontend together.
 
 The registered startup update script installs frontend (`npm install`) when `frontend/package.json` exists, and is a no-op for backend until `backend/Calciolari.DataHub.sln` is restored with `dotnet restore`.

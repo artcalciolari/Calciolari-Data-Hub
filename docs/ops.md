@@ -8,7 +8,7 @@ Ver `.env.example`. Principais:
 |---|---|---|
 | `DATAHUB_CONNECTION_STRING` | local Postgres | Npgsql (`Host=…;Database=…;Username=…;Password=…`) |
 | `SPRING_DATASOURCE_*` | local Postgres | fallback JDBC (scripts de backup / restore) |
-| `DATAHUB_RAW_STORAGE_ROOT` | `./data/raw-storage` | bytes imutáveis `.QRP` no **host** (não é volume do `compose.yaml`) |
+| `DATAHUB_RAW_STORAGE_ROOT` | `./data/raw-storage` | bytes imutáveis `.QRP` no **host**, bind-mounted no backend do Compose |
 | `DATAHUB_IMPORTS_MAX_FILES` | `20` | arquivos por upload |
 | `DATAHUB_IMPORTS_MAX_FILE_BYTES` | `33554432` (32MB) | tamanho por arquivo |
 | `DATAHUB_SECURITY_ENABLED` | `false` | autenticação HTTP Basic |
@@ -52,7 +52,7 @@ MIME e filename do cliente não são confiáveis; só a extensão e o tamanho s�
 
 ## Backup e restore (unidade lógica)
 
-Trate **PostgreSQL + diretório raw no host** (`DATAHUB_RAW_STORAGE_ROOT`, default `./data/raw-storage`) como uma unidade. O `compose.yaml` sobe só Postgres 16; os bytes `.QRP` não entram num volume Docker. Restaurar só o banco sem os bytes (ou o inverso) deixa o sistema inconsistente.
+Trate **PostgreSQL + diretório raw no host** (`DATAHUB_RAW_STORAGE_ROOT`, default `./data/raw-storage`) como uma unidade. O `compose.yaml` sobe PostgreSQL 16, backend e frontend; os bytes `.QRP` entram no backend por bind mount, não em um volume Docker nomeado. Restaurar só o banco sem os bytes (ou o inverso) deixa o sistema inconsistente.
 
 ### Backup
 
@@ -64,7 +64,7 @@ Trate **PostgreSQL + diretório raw no host** (`DATAHUB_RAW_STORAGE_ROOT`, defau
 #   datahub-YYYYMMDD-HHMMSS/MANIFEST.txt
 ```
 
-Requer `pg_dump`, `tar`, e variáveis `DATAHUB_CONNECTION_STRING` ou `SPRING_DATASOURCE_*` / `DATAHUB_RAW_STORAGE_ROOT` (ou defaults locais).
+Requer `pg_dump`, `tar`, e variáveis exportadas no shell (`DATAHUB_CONNECTION_STRING` ou `SPRING_DATASOURCE_*` / `DATAHUB_RAW_STORAGE_ROOT`); os scripts não leem `.env` automaticamente e usam defaults locais quando as variáveis não estão definidas.
 
 ### Restore
 

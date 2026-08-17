@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getDashboard, listSales } from '@/shared/api'
-import { decimal, formatDateTime, formatInteger, formatMoney, formatQuantity } from '@/shared/format'
+import { BrazilDateTimeInput } from '@/shared/BrazilDateTimeInput'
+import {
+  dateTimeInputError,
+  decimal,
+  formatDateTime,
+  formatDateTimeInput,
+  formatInteger,
+  formatMoney,
+  formatQuantity,
+  isDateTimeRangeInverted,
+  normalizeDateTimeFilter,
+  parseDateTimeInput,
+} from '@/shared/format'
 import { Icon, type IconName } from '@/shared/icons'
 import { StateMessage } from '@/shared/StateMessage'
 import { Skeleton } from '@/shared/Skeleton'
@@ -11,13 +23,22 @@ import { readSessionFilter, writeSessionFilter } from '@/shared/sessionFilters'
 
 type Metric = 'revenue' | 'quantity'
 const FILTER_KEY = 'datahub.filters.dashboard'
+const INVERTED_RANGE_ERROR = 'Até deve ser igual ou posterior a De.'
 
 export function DashboardPage() {
   const stored = readSessionFilter(FILTER_KEY, { from: '', to: '' })
+  const initialFilters = {
+    from: normalizeDateTimeFilter(stored.from),
+    to: normalizeDateTimeFilter(stored.to, { endOfMinute: true }),
+  }
+  const initialRangeInverted = isDateTimeRangeInverted(initialFilters.from, initialFilters.to)
   const [metric, setMetric] = useState<Metric>('revenue')
-  const [from, setFrom] = useState(stored.from)
-  const [to, setTo] = useState(stored.to)
-  const [applied, setApplied] = useState(stored)
+  const [from, setFrom] = useState(() => formatDateTimeInput(initialFilters.from))
+  const [to, setTo] = useState(() => formatDateTimeInput(initialFilters.to))
+  const [filterErrors, setFilterErrors] = useState<{ from?: string; to?: string }>(() => (
+    initialRangeInverted ? { to: INVERTED_RANGE_ERROR } : {}
+  ))
+  const [applied, setApplied] = useState(initialRangeInverted ? { from: '', to: '' } : initialFilters)
   const state = useAsync(
     () => getDashboard({
       from: applied.from || undefined,
@@ -54,13 +75,46 @@ export function DashboardPage() {
         className="form-row"
         onSubmit={(event) => {
           event.preventDefault()
-          const next = { from, to }
+          const fromValue = parseDateTimeInput(from)
+          const toValue = parseDateTimeInput(to, { endOfMinute: true })
+          const fromError = dateTimeInputError(from)
+          const toError = dateTimeInputError(to)
+          if (fromValue === null || toValue === null) {
+            setFilterErrors({ from: fromError, to: toError })
+            return
+          }
+          if (isDateTimeRangeInverted(fromValue, toValue)) {
+            setFilterErrors({ from: undefined, to: INVERTED_RANGE_ERROR })
+            return
+          }
+          const next = { from: fromValue, to: toValue }
           writeSessionFilter(FILTER_KEY, next)
+          setFilterErrors({})
+          setFrom(formatDateTimeInput(next.from))
+          setTo(formatDateTimeInput(next.to))
           setApplied(next)
         }}
       >
-        <input aria-label="De" type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <input aria-label="Até" type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} />
+        <BrazilDateTimeInput
+          id="dashboard-from"
+          label="De"
+          value={from}
+          error={filterErrors.from}
+          onChange={(value) => {
+            setFrom(value)
+            setFilterErrors((current) => ({ ...current, from: undefined }))
+          }}
+        />
+        <BrazilDateTimeInput
+          id="dashboard-to"
+          label="Até"
+          value={to}
+          error={filterErrors.to}
+          onChange={(value) => {
+            setTo(value)
+            setFilterErrors((current) => ({ ...current, to: undefined }))
+          }}
+        />
         <button className="btn primary" type="submit">Filtrar</button>
       </form>
 
@@ -89,16 +143,18 @@ export function DashboardPage() {
             <h2>Produto em destaque</h2>
             <span className="muted">maior faturamento</span>
           </div>
-          <Link className="featured-name" to={`/products/${featured.productId}`}>{featured.name}</Link>
-          <p className="muted">
-            {formatMoney(featured.revenue)} · {formatQuantity(featured.quantity)}
-          </p>
-          <p className="muted">
-            Primeira movimentação {formatDateTime(data.firstMovementAt)} · última {formatDateTime(data.lastMovementAt)}
-          </p>
-          <div className="form-row">
-            <Link className="btn primary" to="/sales">Ver vendas</Link>
-            <Link className="btn secondary" to="/imports">Importar arquivos</Link>
+          <div className="featured-body">
+            <Link className="featured-name" to={`/products/${featured.productId}`}>{featured.name}</Link>
+            <p className="muted">
+              {formatMoney(featured.revenue)} · {formatQuantity(featured.quantity)}
+            </p>
+            <p className="muted">
+              Primeira movimentação {formatDateTime(data.firstMovementAt)} · última {formatDateTime(data.lastMovementAt)}
+            </p>
+            <div className="featured-actions">
+              <Link className="btn primary" to="/sales">Ver vendas</Link>
+              <Link className="btn secondary" to="/imports">Importar arquivos</Link>
+            </div>
           </div>
         </section>
       )}

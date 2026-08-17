@@ -465,6 +465,41 @@ a.btn.secondary {
   background: #fff;
 }
 
+.date-time-field {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: min(100%, 220px);
+  gap: 4px;
+}
+
+.date-time-field label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.date-time-field input {
+  width: 100%;
+}
+
+.date-time-field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.date-time-hint,
+.date-time-error {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.date-time-hint {
+  color: var(--muted);
+}
+
+.date-time-error {
+  color: var(--danger);
+}
+
 .list-stack {
   display: grid;
   gap: 10px;
@@ -503,8 +538,8 @@ a.btn.secondary {
 }
 
 .bar-wrap {
-  flex: 1;
-  min-width: 24px;
+  flex: 1 1 0;
+  min-width: 0;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -536,6 +571,19 @@ a.btn.secondary {
   font-size: 10px;
   color: var(--muted);
   margin-top: 5px;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---------- hero ---------- */
@@ -977,6 +1025,23 @@ summary:focus-visible {
 .featured-name {
   font-size: 22px;
   font-weight: 600;
+}
+
+.featured-body {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.featured-body p {
+  margin: 0;
+}
+
+.featured-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .login-shell {

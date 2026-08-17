@@ -40,6 +40,7 @@ Thumbs.db
 # Local raw storage / temp uploads (runtime, never commit)
 /data/
 /backend/data/
+/backend/src/Calciolari.DataHub/data/raw-storage/
 /raw-storage/
 /backups/
 
