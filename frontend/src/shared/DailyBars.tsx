@@ -175,6 +175,17 @@ export function DailyBars({
   const axisZero = format('0')
   const averageLabel = format(average.toFixed(2))
 
+  const mobilePoints = barDetails.map(({ value }, index) => {
+    const x = lastIndex === 0 ? 50 : (index / lastIndex) * 100
+    const y = 100 - (Math.min(value, scaleMax) / scaleMax) * 100
+    return { x, y }
+  })
+  const mobileLine = mobilePoints.map(({ x, y }) => `${x},${y}`).join(' ')
+  const mobileArea = `0,100 ${mobileLine} 100,100`
+  const selectedMobile = mobilePoints[selected]
+  const peakMobile = mobilePoints[peakIndex]
+  const averageY = 100 - (average / scaleMax) * 100
+
   function clampSelect(next: number) {
     setSelectedIndex(Math.max(0, Math.min(lastIndex, next)))
   }
@@ -263,40 +274,65 @@ export function DailyBars({
             <span />
             <span />
           </div>
-          <div
-            className="chart-avg"
-            style={{ bottom: `${averageHeight}%` }}
-            title={`Média ${averageLabel}`}
-          />
-          <div className="bars">
-            {barDetails.map(({ point, date, formattedValue, exceedsScale, height, value }, index) => {
-              const isSelected = index === selected
-              const isHovered = !isMobile && index === hovered
-              const className = [
-                'bar',
-                isSelected ? 'is-selected' : '',
-                isHovered ? 'is-hovered' : '',
-                exceedsScale ? 'is-clipped' : '',
-              ].filter(Boolean).join(' ')
-              return (
-                <div
-                  key={point.date}
-                  className="bar-wrap"
-                  onPointerEnter={isMobile ? undefined : () => setHoveredIndex(index)}
-                >
+          {isMobile ? (
+            <svg
+              className="chart-line"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <polygon points={mobileArea} className="chart-line-area" />
+              <line
+                x1="0"
+                y1={averageY}
+                x2="100"
+                y2={averageY}
+                className="chart-line-avg"
+              />
+              <polyline points={mobileLine} className="chart-line-path" />
+              {clipped && (
+                <circle cx={peakMobile.x} cy={Math.max(3, peakMobile.y)} r="1.8" className="chart-line-peak" />
+              )}
+              <circle cx={selectedMobile.x} cy={selectedMobile.y} r="2.2" className="chart-line-dot" />
+            </svg>
+          ) : (
+            <div
+              className="chart-avg"
+              style={{ bottom: `${averageHeight}%` }}
+              title={`Média ${averageLabel}`}
+            />
+          )}
+          {!isMobile && (
+            <div className="bars">
+              {barDetails.map(({ point, date, formattedValue, exceedsScale, height, value }, index) => {
+                const isSelected = index === selected
+                const isHovered = index === hovered
+                const className = [
+                  'bar',
+                  isSelected ? 'is-selected' : '',
+                  isHovered ? 'is-hovered' : '',
+                  exceedsScale ? 'is-clipped' : '',
+                ].filter(Boolean).join(' ')
+                return (
                   <div
-                    className={className}
-                    style={{
-                      height,
-                      '--bar-fill': `${Math.round(28 + 72 * (Math.min(value, scaleMax) / scaleMax))}%`,
-                    } as CSSProperties}
-                    title={isMobile ? undefined : `${date}: ${formattedValue}`}
-                  />
-                  {isHovered && <DailyBarsTooltip day={point} />}
-                </div>
-              )
-            })}
-          </div>
+                    key={point.date}
+                    className="bar-wrap"
+                    onPointerEnter={() => setHoveredIndex(index)}
+                  >
+                    <div
+                      className={className}
+                      style={{
+                        height,
+                        '--bar-fill': `${Math.round(28 + 72 * (Math.min(value, scaleMax) / scaleMax))}%`,
+                      } as CSSProperties}
+                      title={`${date}: ${formattedValue}`}
+                    />
+                    {isHovered && <DailyBarsTooltip day={point} />}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
         <div className="chart-x" aria-hidden="true">
           {barDetails.map(({ point, compactDate }, index) => (

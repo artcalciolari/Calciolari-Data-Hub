@@ -252,7 +252,7 @@ describe('DailyBars (mobile)', () => {
   })
 
   it('opens a details sheet on tap instead of a transient tooltip', () => {
-    renderChart([
+    const { container } = renderChart([
       { date: '2026-07-01', quantity: '2.5', revenue: '10' },
       { date: '2026-07-02', quantity: '4', revenue: '20' },
       { date: '2026-07-03', quantity: '1', revenue: '30' },
@@ -266,6 +266,10 @@ describe('DailyBars (mobile)', () => {
     fireEvent.click(plot, { clientX: 150 })
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('02/07/2026: R$ 20')).not.toBeInTheDocument()
+    expect(container.querySelector('.chart-line')).toBeTruthy()
+    expect(container.querySelector('.chart-line-path')).toBeTruthy()
+    expect(container.querySelector('.chart-line-dot')).toBeTruthy()
     const dialog = screen.getByRole('dialog', { name: '02/07/2026' })
     expect(dialog).toBeInTheDocument()
     expect(dialog).toHaveTextContent('Faturamento')
@@ -315,6 +319,21 @@ describe('DailyBars (mobile)', () => {
 
     const labels = Array.from(container.querySelectorAll('.bar-label')).map((label) => label.textContent)
     expect(labels.filter(Boolean)).toHaveLength(3)
+    expect(container.querySelector('.bars')).toBeNull()
+    expect(container.querySelector('.chart-line')).toBeTruthy()
+  })
+
+  it('marks the clipped peak on the mobile line chart', () => {
+    const { container } = renderChart([
+      day(1, '80'),
+      day(2, '90'),
+      day(3, '85'),
+      day(4, '692.81'),
+    ])
+    expect(container.querySelector('.chart-line')).toBeTruthy()
+    expect(container.querySelector('.chart-line-peak')).toBeTruthy()
+    expect(container.querySelector('.chart-line-dot')).toBeTruthy()
+    expect(screen.getByText(/escala até/)).toBeInTheDocument()
   })
 
   it('opens the sheet with Enter on mobile keyboard navigation', () => {

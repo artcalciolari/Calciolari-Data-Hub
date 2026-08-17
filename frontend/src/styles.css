@@ -595,6 +595,45 @@ a.btn.secondary {
   touch-action: pan-y;
 }
 
+.chart-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-line-area {
+  fill: color-mix(in srgb, var(--salvia) 16%, transparent);
+}
+
+.chart-line-path {
+  fill: none;
+  stroke: var(--nocciola);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line-avg {
+  stroke: var(--salvia);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line-dot {
+  fill: var(--salvia);
+  stroke: var(--card);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line-peak {
+  fill: var(--pomodoro);
+  vector-effect: non-scaling-stroke;
+}
+
 .chart-plot:focus-visible {
   outline: 2px solid var(--salvia);
   outline-offset: 3px;
@@ -1318,13 +1357,8 @@ a.btn.secondary {
   }
 
   .chart-plot {
-    height: 200px;
+    height: 220px;
     border-bottom-width: 1.5px;
-  }
-
-  .bars {
-    gap: 5px;
-    padding: 6px 0 0;
   }
 
   .chart-y {
