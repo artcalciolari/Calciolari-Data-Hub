@@ -71,6 +71,7 @@ public sealed class SecurityAndOptionsTests
             ["DATAHUB_IMPORTS_MAX_FILES"] = Environment.GetEnvironmentVariable("DATAHUB_IMPORTS_MAX_FILES"),
             ["DATAHUB_IMPORTS_MAX_FILE_BYTES"] = Environment.GetEnvironmentVariable("DATAHUB_IMPORTS_MAX_FILE_BYTES"),
             ["DATAHUB_PARSER_MAX_BYTES"] = Environment.GetEnvironmentVariable("DATAHUB_PARSER_MAX_BYTES"),
+            ["DATAHUB_DEBUG_ENABLED"] = Environment.GetEnvironmentVariable("DATAHUB_DEBUG_ENABLED"),
             ["SPRING_DATASOURCE_URL"] = Environment.GetEnvironmentVariable("SPRING_DATASOURCE_URL")
         };
         try
@@ -90,6 +91,15 @@ public sealed class SecurityAndOptionsTests
             Assert.Contains("Host=h", bound.ConnectionString);
             Assert.Equal("/tmp/raw", bound.RawStorageRoot);
             Assert.False(bound.SecurityEnabled);
+            Assert.False(bound.DebugEnabled);
+
+            var debugConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=h;Database=d;Username=u;Password=p",
+                ["DataHub:DebugEnabled"] = "true"
+            }).Build();
+            Assert.True(AppHost.BindOptions(debugConfig, "Development").DebugEnabled);
+            Assert.False(AppHost.BindOptions(debugConfig, "Production").DebugEnabled);
 
             var prod = AppHost.BindOptions(config, "Production");
             Assert.True(prod.SecurityEnabled);
@@ -111,6 +121,7 @@ public sealed class SecurityAndOptionsTests
             Environment.SetEnvironmentVariable("DATAHUB_SECURITY_ENABLED", "true");
             Environment.SetEnvironmentVariable("DATAHUB_SECURITY_USERS", "u:p:ADMIN");
             Environment.SetEnvironmentVariable("DATAHUB_CORS_ALLOWED_ORIGINS", "http://x");
+            Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "true");
             var fromEnv = AppHost.BindOptions(config, "Development");
             Assert.Equal("Host=env", fromEnv.ConnectionString);
             Assert.Equal("/env/raw", fromEnv.RawStorageRoot);
@@ -120,6 +131,12 @@ public sealed class SecurityAndOptionsTests
             Assert.True(fromEnv.SecurityEnabled);
             Assert.Equal("u:p:ADMIN", fromEnv.SecurityUsers);
             Assert.Equal("http://x", fromEnv.CorsAllowedOrigins);
+            Assert.True(fromEnv.DebugEnabled);
+
+            Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "false");
+            Assert.False(AppHost.BindOptions(config, "Development").DebugEnabled);
+            Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "true");
+            Assert.False(AppHost.BindOptions(config, "Production").DebugEnabled);
 
             Environment.SetEnvironmentVariable("DATAHUB_CONNECTION_STRING", null);
             Environment.SetEnvironmentVariable("SPRING_DATASOURCE_URL", "jdbc:postgresql://spring:5432/db");
@@ -167,6 +184,10 @@ public sealed class SecurityAndOptionsTests
         Assert.Equal("WARNING", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("WARNING"));
         Assert.Equal("INVALID", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("INVALID"));
         Assert.Equal("FAILED", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("FAILED"));
+        Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("PENDING"));
+        Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("PROCESSING"));
+        Assert.True(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("IMPORTED"));
+        Assert.True(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("FAILED"));
 
         var now = DateTimeOffset.UtcNow;
         Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.HasActiveLease(null));

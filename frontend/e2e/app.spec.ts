@@ -131,6 +131,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await page.goto('/imports')
     await expect(page.getByRole('heading', { name: 'Importar', exact: true })).toBeVisible()
     await expect(page.getByText('Arraste os .QRP aqui')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Modo debug' })).toBeVisible()
     await expect(page.locator('tbody tr').first()).toBeVisible()
     const firstJob = page.locator('tbody tr').first()
     await firstJob.click()

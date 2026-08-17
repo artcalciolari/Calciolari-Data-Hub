@@ -6,9 +6,11 @@ import { ImportsPage } from '../ImportsPage'
 vi.mock('@/shared/api', () => ({
   listImports: vi.fn(),
   uploadQrp: vi.fn(),
+  getDebugStatus: vi.fn(),
+  resetDataset: vi.fn(),
 }))
 
-import { listImports, uploadQrp } from '@/shared/api'
+import { listImports, uploadQrp, getDebugStatus, resetDataset } from '@/shared/api'
 import type { ImportJob } from '@/shared/api'
 
 const jobRow = {
@@ -56,6 +58,7 @@ describe('ImportsPage', () => {
       totalElements: 1,
       totalPages: 1,
     })
+    vi.mocked(getDebugStatus).mockResolvedValue({ enabled: false })
   })
 
   it('renders history and supports file selection upload flow', async () => {
@@ -311,5 +314,33 @@ describe('ImportsPage', () => {
     expect(screen.getByText(/Já importado/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes' }))
     expect(await screen.findByText('job detail')).toBeInTheDocument()
+  })
+
+  it('refreshes history after a debug dataset reset', async () => {
+    vi.mocked(getDebugStatus).mockResolvedValue({ enabled: true })
+    vi.mocked(resetDataset).mockResolvedValue({ reset: true, artifactCount: 1, filesDeleted: 1 })
+    vi.mocked(uploadQrp).mockResolvedValue({
+      id: 'j-new',
+      status: 'SUCCEEDED',
+      createdAt: 't',
+      completedAt: null,
+      files: jobRow.files,
+    })
+    renderPage()
+    const file = new File(['data'], 'test.qrp', { type: 'application/octet-stream' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: /Importar \(1\)/ }))
+    expect(await screen.findByText('MOLHO POMODORO')).toBeInTheDocument()
+    vi.mocked(listImports).mockResolvedValue({
+      content: [],
+      page: 0,
+      size: 10,
+      totalElements: 0,
+      totalPages: 0,
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar dados' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar exclusão' }))
+    expect(await screen.findByText('Nenhuma importação ainda.')).toBeInTheDocument()
+    expect(screen.queryByText('MOLHO POMODORO')).not.toBeInTheDocument()
   })
 })

@@ -696,6 +696,8 @@ public sealed class IngestionCoverageTests : IDisposable
         }
 
         public bool Exists(string storageKey) => Inner.Exists(storageKey);
+
+        public int WipeAll() => Inner.WipeAll();
     }
 
     private sealed class UniqueViolationInterceptor : SaveChangesInterceptor

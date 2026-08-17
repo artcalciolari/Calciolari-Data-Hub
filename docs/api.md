@@ -16,6 +16,15 @@ OpenAPI document: `GET /openapi/v1.json` (anonymous).
 
 Duplicate content is a successful business response (`deduplicated: true`), not an HTTP error. The PWA upload client reports XHR progress and polls until the job is terminal.
 
+## Debug (non-production)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/debug` | `{ enabled }` — whether destructive reset is available. `VIEWER`/`IMPORTER`/`ADMIN` when security is on |
+| `POST` | `/api/debug/reset-dataset` | Admin only. Truncates canonical tables (keeps `schema_history`), deletes raw `.QRP` bytes, resets in-process import metrics. Same content can be imported again. **404** when debug mode is off. Forced **off** in `Production` |
+
+`DATAHUB_DEBUG_ENABLED` overrides config. Development appsettings default to on; Production always disables it. The Importar page shows **Modo debug** only when `enabled` is true.
+
 ## Catalog / sales / analytics
 
 | Method | Path |
@@ -30,7 +39,7 @@ Queries only include rows from `artifact_publication.active_parse_attempt_id`. D
 
 ## Auth (when `DATAHUB_SECURITY_ENABLED=true`)
 
-HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST upload), `ADMIN` (reprocess + actuator metrics + all).
+HTTP Basic. Roles: `VIEWER` (GET), `IMPORTER` (POST upload), `ADMIN` (reprocess + debug dataset reset + actuator metrics + all).
 
 Unauthenticated API calls → `401`. Insufficient role → `403`. The PWA login screen is `/login` (HTTP Basic stored in `sessionStorage`, never in the service worker cache).
 

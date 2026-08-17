@@ -370,7 +370,7 @@ public sealed class ImportIngestionService : IImportFileProcessor
                     InterPdvQrpParser.ParserName,
                     ctx.File.Status,
                     ctx.File.Deduplicated);
-                if (ctx.File.Status is not "PENDING" and not "PROCESSING")
+                if (ShouldRecordSkippedFileMetrics(ctx.File.Status))
                 {
                     _metrics?.RecordFile(ctx.File.Status, ctx.File.Deduplicated, 0);
                 }
@@ -813,6 +813,9 @@ public sealed class ImportIngestionService : IImportFileProcessor
 
         return latest.LeaseUntil.Value > DateTimeOffset.UtcNow;
     }
+
+    internal static bool ShouldRecordSkippedFileMetrics(string status) =>
+        status is not "PENDING" and not "PROCESSING";
 
     internal static string MapFileStatus(string parseStatus) => parseStatus switch
     {

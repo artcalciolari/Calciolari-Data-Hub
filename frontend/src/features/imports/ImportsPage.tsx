@@ -9,6 +9,7 @@ import { TableSkeleton } from '@/shared/TableSkeleton'
 import { Pagination } from '@/shared/Pagination'
 import { useAsync } from '@/shared/useAsync'
 import { Icon } from '@/shared/icons'
+import { DebugResetPanel } from '@/features/imports/DebugResetPanel'
 
 export function ImportsPage() {
   const navigate = useNavigate()
@@ -168,6 +169,14 @@ export function ImportsPage() {
           <div className="empty-state">Nenhuma importação ainda.</div>
         )}
       </section>
+
+      <DebugResetPanel
+        onCleared={() => {
+          setResult(null)
+          setPage(0)
+          setRefresh((value) => value + 1)
+        }}
+      />
     </div>
   )
 }

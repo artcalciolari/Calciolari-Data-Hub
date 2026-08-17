@@ -1,8 +1,9 @@
 namespace Calciolari.DataHub.Imports.Infrastructure.Storage;
 
 /// <summary>
-/// Immutable raw artifact store. putIfAbsent must never clobber existing
-/// bytes; hash/size divergence is an integrity failure.
+/// Immutable raw artifact store. PutIfAbsent must never clobber existing
+/// bytes; hash/size divergence is an integrity failure. WipeAll is the
+/// debug-only exception used to rebuild an empty dataset.
 /// </summary>
 public interface IRawFileStorage
 {
@@ -11,4 +12,6 @@ public interface IRawFileStorage
     Stream OpenVerified(string storageKey, string expectedSha256, long expectedSize);
 
     bool Exists(string storageKey);
+
+    int WipeAll();
 }

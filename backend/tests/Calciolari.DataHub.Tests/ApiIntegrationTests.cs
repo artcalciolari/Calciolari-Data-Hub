@@ -27,6 +27,7 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         Environment.SetEnvironmentVariable("DATAHUB_SECURITY_ENABLED", "false");
         Environment.SetEnvironmentVariable("DATAHUB_SECURITY_USERS", "");
         Environment.SetEnvironmentVariable("DATAHUB_CORS_ALLOWED_ORIGINS", "http://localhost:5173");
+        Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "true");
         _app = AppHost.Create(["--urls=http://127.0.0.1:0"]);
         await _app.StartAsync();
         _client = new HttpClient { BaseAddress = new Uri(_app.Urls.Single()) };
@@ -83,6 +84,8 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, openapi.StatusCode);
         Assert.Contains("openapi", await openapi.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync("/nope")).StatusCode);
+        var debug = await _client.GetFromJsonAsync<JsonDebugStatus>("/api/debug");
+        Assert.True(debug!.Enabled);
     }
 
     [Fact]
@@ -207,6 +210,47 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
         Assert.Equal("PARTIAL_SUCCESS", job.Status);
     }
 
+    [Fact]
+    public async Task Debug_reset_clears_dataset_and_allows_reimport()
+    {
+        Clean();
+        var bytes = FixturePackage.RequireBytes("fixture-a");
+        using (var form = BuildFiles(("AUDITORIA.QRP", bytes)))
+        {
+            var upload = await _client.PostAsync("/api/imports/qrp", form);
+            var accepted = await upload.Content.ReadFromJsonAsync<JsonJob>();
+            var finished = await WaitForJob(accepted!.Id);
+            Assert.Equal("SUCCEEDED", finished.Status);
+            Assert.False(finished.Files[0].Deduplicated);
+        }
+
+        var before = await _client.GetFromJsonAsync<JsonDashboard>("/api/dashboard");
+        Assert.True(before!.SalesCount >= 1);
+
+        var reset = await _client.PostAsync("/api/debug/reset-dataset", null);
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+        var body = await reset.Content.ReadFromJsonAsync<JsonDatasetReset>();
+        Assert.True(body!.Reset);
+        Assert.True(body.ArtifactCount >= 1);
+
+        var emptyDash = await _client.GetFromJsonAsync<JsonDashboard>("/api/dashboard");
+        Assert.Equal(0, emptyDash!.SalesCount);
+        var emptyJobs = await _client.GetFromJsonAsync<JsonPage<JsonJob>>("/api/imports?page=0&size=20");
+        Assert.Equal(0, emptyJobs!.TotalElements);
+
+        using (var again = BuildFiles(("AUDITORIA.QRP", bytes)))
+        {
+            var upload = await _client.PostAsync("/api/imports/qrp", again);
+            var accepted = await upload.Content.ReadFromJsonAsync<JsonJob>();
+            var finished = await WaitForJob(accepted!.Id);
+            Assert.Equal("SUCCEEDED", finished.Status);
+            Assert.False(finished.Files[0].Deduplicated);
+        }
+
+        var after = await _client.GetFromJsonAsync<JsonDashboard>("/api/dashboard");
+        Assert.True(after!.SalesCount >= 1);
+    }
+
     private async Task<JsonJob> WaitForJob(Guid id)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
@@ -247,6 +291,8 @@ public sealed class ApiIntegrationTests : IAsyncLifetime
     private sealed record JsonSaleDetail(Guid Id, List<JsonSaleItem> Items);
     private sealed record JsonSaleItem(Guid Id, string ProductName);
     private sealed record JsonDashboard(long SalesCount, string RevenueTotal, string? AverageTicket);
+    private sealed record JsonDebugStatus(bool Enabled);
+    private sealed record JsonDatasetReset(bool Reset, int ArtifactCount, int FilesDeleted);
 }
 
 public sealed class SecurityIntegrationTests : IAsyncLifetime
@@ -264,6 +310,7 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
         Environment.SetEnvironmentVariable("DATAHUB_SECURITY_USERS",
             "viewer:v:VIEWER,importer:i:IMPORTER|VIEWER,admin:a:ADMIN|IMPORTER|VIEWER");
         Environment.SetEnvironmentVariable("DATAHUB_CORS_ALLOWED_ORIGINS", "");
+        Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "false");
         _app = AppHost.Create(["--urls=http://127.0.0.1:0"]);
         await _app.StartAsync();
         _client = new HttpClient { BaseAddress = new Uri(_app.Urls.Single()) };
@@ -288,15 +335,20 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
 
         using var viewer = Authed("viewer", "v");
         Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/products")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync("/api/debug")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PostAsync("/api/debug/reset-dataset", null)).StatusCode);
         using var upload = new MultipartFormDataContent();
         upload.Add(new ByteArrayContent("x"u8.ToArray()), "files", "x.qrp");
         Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PostAsync("/api/imports/qrp", upload)).StatusCode);
 
         using var importer = Authed("importer", "i");
         Assert.Equal(HttpStatusCode.Forbidden, (await importer.PostAsync("/api/imports/files/" + Guid.NewGuid() + "/reprocess", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await importer.PostAsync("/api/debug/reset-dataset", null)).StatusCode);
 
         using var admin = Authed("admin", "a");
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/actuator/metrics")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/debug")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync("/api/debug/reset-dataset", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync("/api/imports/files/" + Guid.NewGuid() + "/reprocess", null)).StatusCode);
 
         using var bad = Authed("viewer", "wrong");

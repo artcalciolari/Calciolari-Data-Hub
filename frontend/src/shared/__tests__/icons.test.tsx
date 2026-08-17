@@ -21,6 +21,7 @@ const ICON_NAMES: IconName[] = [
   'items',
   'ticket',
   'tag',
+  'trash',
 ]
 
 describe('Icon', () => {

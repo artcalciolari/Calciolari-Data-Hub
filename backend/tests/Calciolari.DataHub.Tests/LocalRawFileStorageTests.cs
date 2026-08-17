@@ -58,6 +58,18 @@ public sealed class LocalRawFileStorageTests
         Assert.False(storage.Exists("."));
         var trailing = new LocalRawFileStorage(root + Path.DirectorySeparatorChar);
         Assert.True(trailing.Exists(first.StorageKey));
+
+        var missingRoot = Path.Combine(Directory.CreateTempSubdirectory("raw-missing").FullName, "nope");
+        Assert.Equal(0, new LocalRawFileStorage(missingRoot).WipeAll());
+        var emptyRoot = Directory.CreateTempSubdirectory("raw-empty").FullName;
+        Assert.Equal(0, new LocalRawFileStorage(emptyRoot).WipeAll());
+
+        File.WriteAllBytes(Path.Combine(root, "loose.bin"), "loose"u8.ToArray());
+        var wiped = storage.WipeAll();
+        Assert.True(wiped >= 2);
+        Assert.False(storage.Exists(first.StorageKey));
+        Assert.False(File.Exists(Path.Combine(root, "loose.bin")));
+        Assert.Equal(0, storage.WipeAll());
     }
 
     [Fact]

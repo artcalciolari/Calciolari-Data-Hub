@@ -6,10 +6,12 @@ import {
   getImportJob,
   getProduct,
   getSale,
+  getDebugStatus,
   listImports,
   listProducts,
   listSales,
   NAV_ITEMS,
+  resetDataset,
   uploadQrp,
   waitForImportJob,
 } from '../api'
@@ -224,6 +226,15 @@ describe('api', () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse({ daily: [], topProducts: [] }))
     await getDashboard({})
     expect(fetch).toHaveBeenCalledWith('/api/dashboard?', expect.any(Object))
+  })
+
+  it('getDebugStatus and resetDataset call debug endpoints', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ enabled: true }))
+    await expect(getDebugStatus()).resolves.toEqual({ enabled: true })
+    expect(fetch).toHaveBeenCalledWith('/api/debug', expect.any(Object))
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ reset: true, artifactCount: 1, filesDeleted: 2 }))
+    await expect(resetDataset()).resolves.toEqual({ reset: true, artifactCount: 1, filesDeleted: 2 })
+    expect(fetch).toHaveBeenCalledWith('/api/debug/reset-dataset', expect.objectContaining({ method: 'POST' }))
   })
 
   it('throws ApiError with problem detail', async () => {

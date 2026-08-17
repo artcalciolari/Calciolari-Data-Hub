@@ -14,7 +14,8 @@ Ver `.env.example`. Principais:
 | `DATAHUB_SECURITY_ENABLED` | `false` | autenticação HTTP Basic |
 | `DATAHUB_SECURITY_USERS` | vazio | `user:pass:ROLE1\|ROLE2,…` |
 | `DATAHUB_CORS_ALLOWED_ORIGINS` | vazio | origens CORS (CSV) |
-| `ASPNETCORE_ENVIRONMENT` | `Development` | `Production` força auth |
+| `DATAHUB_DEBUG_ENABLED` | `true` em Development | reset destrutivo do dataset; **sempre false** em Production |
+| `ASPNETCORE_ENVIRONMENT` | `Development` | `Production` força auth e desliga o debug |
 
 ## Segurança
 
@@ -22,7 +23,7 @@ Ver `.env.example`. Principais:
 - **Produção:** `ASPNETCORE_ENVIRONMENT=Production` força autenticação e falha o startup se não houver usuários. Roles:
   - `VIEWER` — `GET /api/**`
   - `IMPORTER` — VIEWER + `POST /api/imports/qrp` (upload)
-  - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess` + `/actuator/metrics`
+  - `ADMIN` — tudo, inclusive `POST /api/imports/files/{id}/reprocess`, `POST /api/debug/reset-dataset` (só com debug ligado) + `/actuator/metrics`
 - `/actuator/health` and `/actuator/health/readiness` return HTTP **503** when the database is down. `/actuator/health/liveness` stays `200`. `/actuator/info` remains public.
 - `/actuator/metrics` exposes in-process counters: `imports.completed`, `imports.duplicates`, `imports.warnings`, `imports.failures`, `imports.duration.ms`, `raw.storage.bytes`.
 - `GET /openapi/v1.json` is anonymous.
