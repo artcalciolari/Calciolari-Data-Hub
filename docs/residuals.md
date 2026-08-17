@@ -8,7 +8,7 @@ Documentados de propósito — não escondidos em defaults. Ver também `IMPLEME
 |---|---|---|
 | Sobreposição de `external_sale_id` entre artefatos | Publicação bloqueada (`OVERLAPPING_REPORT`) | Resolver identidade antes de republicar; ver ADR `0002-identity-reconciliation.md` |
 | Escalas numéricas provisórias | Precisão/arredondamento pode mudar com mais fixtures | Migrations `V1` + nota no plano §6.2 |
-| Sem rollback completo de dataset / escolha arbitrária de parser | Só “avançar” via reprocess | Tentativas antigas ficam auditáveis; pointer ativo só troca no sucesso |
+| Sem rollback completo de dataset / escolha arbitrária de parser | Só “avançar” via reprocess em produção | Debug local: `POST /api/debug/reset-dataset` (Development / `DATAHUB_DEBUG_ENABLED`); Production força desligado |
 | Reprocessamento fora da navegação principal | Operação só via API admin | `POST /api/imports/files/{id}/reprocess` (`ADMIN` com security on) |
 | Revisão humana dos valores ouro dos fixtures | `sensitivity: PENDING_REVIEW` no manifesto | Hashes/tamanho e goldens A/B travam o parser; revisão humana continua aberta |
 | Agregações do dashboard em processo | `/api/dashboard` materializa itens publicados e agrupa em memória | EF Core não traduz `Sum` sobre o DTO `ItemFact`; totais continuam iguais aos goldens |

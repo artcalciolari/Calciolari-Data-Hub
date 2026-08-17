@@ -35,10 +35,14 @@ public sealed class ImportWorkerTests
         metrics.RecordFile("FAILED", true, 2);
         metrics.AddRawBytes(0);
         metrics.AddRawBytes(10);
+        metrics.Reset();
+        metrics.RecordJobCompleted("SUCCEEDED");
         var json = System.Text.Json.JsonSerializer.Serialize(metrics.Snapshot());
         Assert.Contains("imports.completed", json);
         Assert.Contains("imports.duplicates", json);
         Assert.Contains("raw.storage.bytes", json);
+        Assert.Contains("\"Value\":1", json);
+        Assert.DoesNotContain("\"Value\":10", json);
     }
 
     [Fact]

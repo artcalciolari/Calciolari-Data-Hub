@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Ticket,
   Tag,
+  Trash2,
   type LucideProps,
 } from 'lucide-react'
 
@@ -39,6 +40,7 @@ export type IconName =
   | 'items'
   | 'ticket'
   | 'tag'
+  | 'trash'
 
 const ICONS: Record<IconName, ComponentType<LucideProps>> = {
   chart: BarChart3,
@@ -59,6 +61,7 @@ const ICONS: Record<IconName, ComponentType<LucideProps>> = {
   items: ClipboardList,
   ticket: Ticket,
   tag: Tag,
+  trash: Trash2,
 }
 
 export function Icon({ name, size = 22, strokeWidth = 1.75 }: { name: IconName; size?: number; strokeWidth?: number }) {

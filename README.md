@@ -11,6 +11,7 @@ preserva o arquivo bruto e publica dados canônicos auditáveis.
 - Frontend React + TypeScript **strict** mobile-first (Resumo, Vendas, Produtos, Importar, `/login`)
 - PWA instalável (app shell only) + segurança operacional / backup
 - Reprocessamento admin (`POST /api/imports/files/{id}/reprocess`)
+- Modo debug (Development): apaga o dataset e permite reimportar os mesmos `.QRP`
 
 Ver `IMPLEMENTATION_PLAN.md`, `docs/api.md`, `docs/ops.md`, `docs/residuals.md`, `docs/qrp-format.md`, `docs/decisions/`.
 

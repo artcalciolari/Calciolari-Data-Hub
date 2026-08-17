@@ -18,6 +18,12 @@ public sealed class DataHubOptions
 
     public bool SecurityRequireEnabled { get; set; }
 
+    /// <summary>
+    /// Destructive dataset reset. Default off; Development appsettings turn it on.
+    /// Production always forces this false regardless of config or env.
+    /// </summary>
+    public bool DebugEnabled { get; set; }
+
     public string SecurityUsers { get; set; } = string.Empty;
 
     public string CorsAllowedOrigins { get; set; } = string.Empty;

@@ -1470,6 +1470,39 @@ summary:focus-visible {
   color: var(--warn);
 }
 
+.notice.ok {
+  color: var(--ok);
+}
+
+.debug-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+
+.debug-body p {
+  margin: 0;
+}
+
+.debug-confirm {
+  display: grid;
+  gap: 12px;
+}
+
+.btn.danger,
+a.btn.danger {
+  background: var(--pomodoro);
+  background-color: var(--pomodoro);
+  color: var(--crema);
+  border-color: var(--pomodoro);
+}
+
+.btn.danger:hover,
+a.btn.danger:hover {
+  background: var(--terracotta);
+  background-color: var(--terracotta);
+}
+
 .featured-name {
   font-size: 22px;
   font-weight: 600;

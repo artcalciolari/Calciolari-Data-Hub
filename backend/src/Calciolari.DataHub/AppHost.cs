@@ -1,3 +1,4 @@
+using Calciolari.DataHub.Debug;
 using Calciolari.DataHub.Imports.Application;
 using Calciolari.DataHub.Imports.Domain.Hints;
 using Calciolari.DataHub.Imports.Domain.Parser;
@@ -52,6 +53,7 @@ public static class AppHost
         builder.Services.AddScoped<IRawStorageReconciler, RawStorageReconciler>();
         builder.Services.AddHostedService<ImportParseWorker>();
         builder.Services.AddScoped<ImportQueryService>();
+        builder.Services.AddScoped<IDatasetResetService, DatasetResetService>();
         builder.Services.AddScoped<Catalog.Application.ProductQueryService>();
         builder.Services.AddScoped<Sales.Application.SaleQueryService>();
         builder.Services.AddScoped<Analytics.Application.DashboardQueryService>();
@@ -193,10 +195,17 @@ public static class AppHost
             options.CorsAllowedOrigins = cors;
         }
 
+        var debugEnabled = Environment.GetEnvironmentVariable("DATAHUB_DEBUG_ENABLED");
+        if (!string.IsNullOrWhiteSpace(debugEnabled))
+        {
+            options.DebugEnabled = bool.Parse(debugEnabled);
+        }
+
         if (string.Equals(environmentName, "Production", StringComparison.OrdinalIgnoreCase))
         {
             options.SecurityEnabled = true;
             options.SecurityRequireEnabled = true;
+            options.DebugEnabled = false;
             if (string.IsNullOrWhiteSpace(options.CorsAllowedOrigins))
             {
                 options.CorsAllowedOrigins = string.Empty;

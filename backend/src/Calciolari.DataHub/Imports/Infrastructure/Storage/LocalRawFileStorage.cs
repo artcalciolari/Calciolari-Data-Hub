@@ -134,6 +134,31 @@ public sealed class LocalRawFileStorage : IRawFileStorage
 
     public bool Exists(string storageKey) => File.Exists(ResolveKey(storageKey));
 
+    public int WipeAll()
+    {
+        if (!Directory.Exists(_root))
+        {
+            return 0;
+        }
+
+        var deleted = 0;
+        foreach (var entry in Directory.EnumerateFileSystemEntries(_root))
+        {
+            if (Directory.Exists(entry))
+            {
+                deleted += Directory.GetFiles(entry, "*", SearchOption.AllDirectories).Length;
+                Directory.Delete(entry, true);
+            }
+            else
+            {
+                File.Delete(entry);
+                deleted++;
+            }
+        }
+
+        return deleted;
+    }
+
     public static string StorageKeyFor(string sha256)
     {
         var sha = sha256.ToLowerInvariant();

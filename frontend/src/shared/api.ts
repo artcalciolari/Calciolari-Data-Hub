@@ -304,6 +304,24 @@ export function getDashboard(params: { from?: string; to?: string; productId?: s
   return request<DashboardResponse>(`/api/dashboard?${q.toString()}`)
 }
 
+export interface DebugStatus {
+  enabled: boolean
+}
+
+export interface DatasetResetResponse {
+  reset: boolean
+  artifactCount: number
+  filesDeleted: number
+}
+
+export function getDebugStatus() {
+  return request<DebugStatus>('/api/debug')
+}
+
+export function resetDataset() {
+  return request<DatasetResetResponse>('/api/debug/reset-dataset', { method: 'POST' })
+}
+
 export interface NavItem {
   to: string
   label: string

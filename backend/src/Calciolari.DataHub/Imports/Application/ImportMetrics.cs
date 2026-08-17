@@ -54,6 +54,16 @@ public sealed class ImportMetrics
         }
     }
 
+    public void Reset()
+    {
+        Interlocked.Exchange(ref _completed, 0);
+        Interlocked.Exchange(ref _duplicates, 0);
+        Interlocked.Exchange(ref _warnings, 0);
+        Interlocked.Exchange(ref _failures, 0);
+        Interlocked.Exchange(ref _durationMs, 0);
+        Interlocked.Exchange(ref _rawStorageBytes, 0);
+    }
+
     public object Snapshot()
     {
         var measurements = new (string Name, long Value)[]
