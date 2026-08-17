@@ -36,6 +36,8 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByText(/3\.705,88/)).toBeVisible()
     await expect(page.getByText(/63,828/)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Evolução diária' })).toBeVisible()
+    await expect(page.getByRole('slider', { name: 'Evolução diária' })).toBeVisible()
+    await expect(page.getByText(/Pico .+ média/)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Top produtos' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Vendas recentes' })).toBeVisible()
     await page.getByRole('button', { name: 'Qtd' }).click()
@@ -107,7 +109,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByRole('heading', { name: 'Produtos', exact: true })).toBeVisible()
     await page.getByText('MOLHO POMODORO').click()
     await expect(page.getByRole('heading', { name: 'MOLHO POMODORO' })).toBeVisible()
-    await expect(page.getByRole('img', { name: 'Série diária do produto' })).toBeVisible()
+    await expect(page.getByRole('slider', { name: 'Série diária do produto' })).toBeVisible()
   })
 
   test('imports page shows upload dropzone and history', async ({ page }) => {

@@ -531,70 +531,181 @@ a.btn.secondary {
   color: var(--muted);
 }
 
-/* ---------- bars ---------- */
+/* ---------- chart ---------- */
+.chart {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.chart-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chart-readout-date {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chart-readout-value {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+}
+
+.chart-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chart-body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  column-gap: 10px;
+  row-gap: 8px;
+}
+
+.chart-y {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 4px 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chart-plot {
+  grid-row: 1;
+  position: relative;
+  height: 168px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.chart-plot:focus-visible {
+  outline: 2px solid var(--salvia);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.chart-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.chart-grid span {
+  display: block;
+  border-top: 1px dashed #efe6da;
+}
+
+.chart-avg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed var(--salvia);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .bars {
-  height: 220px;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: flex-end;
-  gap: 6px;
-  padding: 24px 20px 16px;
+  gap: 3px;
+  padding: 4px 2px 0;
 }
 
 .bar-wrap {
   flex: 1 1 0;
   min-width: 0;
-  text-align: center;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  align-items: center;
-}
-
-.bar-value {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--nocciola);
-  margin-bottom: 6px;
-  white-space: nowrap;
-  line-height: 1.2;
-  text-size-adjust: 100%;
-  -webkit-text-size-adjust: 100%;
-}
-
-.bar-wrap:nth-child(-n+3) .bar-value {
-  align-self: flex-start;
-}
-
-.bar-wrap:nth-last-child(-n+3) .bar-value {
-  align-self: flex-end;
-}
-
-.bar-wrap:only-child .bar-value {
-  align-self: center;
+  align-items: stretch;
 }
 
 .bar {
   width: 100%;
-  background: linear-gradient(180deg, #5c554a, var(--nocciola));
-  border-radius: 6px 6px 2px 2px;
-  min-height: 2px;
-  transition: height 220ms ease;
+  background: color-mix(in srgb, var(--nocciola) var(--bar-fill, 70%), var(--intonaco));
+  border-radius: 4px 4px 1px 1px;
+  min-height: 3px;
+  transition: height 220ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
-.bar-max {
+.bar.is-selected {
   background: linear-gradient(180deg, #7fa87a, var(--salvia));
+  box-shadow: 0 0 0 1px rgba(110, 140, 105, 0.35);
+}
+
+.bar.is-clipped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--nocciola),
+    var(--nocciola) 5px,
+    #5c554a 5px,
+    #5c554a 10px
+  );
+}
+
+.bar.is-clipped.is-selected {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--salvia),
+    var(--salvia) 5px,
+    #7fa87a 5px,
+    #7fa87a 10px
+  );
+}
+
+.chart-x {
+  grid-column: 2;
+  display: flex;
+  gap: 3px;
+}
+
+.chart-x .bar-label:first-child {
+  text-align: left;
+}
+
+.chart-x .bar-label:last-child {
+  text-align: right;
 }
 
 .bar-label {
+  flex: 1 1 0;
+  min-width: 0;
   font-size: 11px;
   color: var(--muted);
-  margin-top: 8px;
-  min-height: 1.25em;
+  text-align: center;
   line-height: 1.25;
   white-space: nowrap;
   overflow: visible;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
+}
+
+.chart-summary {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .sr-only {
@@ -1022,18 +1133,21 @@ a.btn.secondary {
     font-size: 34px;
   }
 
-  .bars {
-    height: 240px;
-    gap: 4px;
-    padding: 28px 18px 22px;
+  .chart {
+    padding: 14px 14px 16px;
+    gap: 10px;
   }
 
-  .bar-value {
-    font-size: 10px;
+  .chart-readout-value {
+    font-size: 20px;
   }
 
-  .bar-label {
-    font-size: 10px;
+  .chart-plot {
+    height: 176px;
+  }
+
+  .chart-y {
+    font-size: 9px;
   }
 
   .grid.cards-4 {

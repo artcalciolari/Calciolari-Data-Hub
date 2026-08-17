@@ -71,10 +71,10 @@ describe('DashboardPage', () => {
 
   it('switches the daily chart metric from revenue to quantity', async () => {
     renderPage()
-    expect(await screen.findByText('R$ 210,50', { selector: '.bar-value' })).toBeInTheDocument()
+    expect(await screen.findByText('R$ 210,50', { selector: '.chart-readout-value' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Qtd' }))
     expect(screen.getByRole('button', { name: 'Qtd' })).toHaveClass('active')
-    expect(screen.getByText(/^5$/, { selector: '.bar-value' })).toBeInTheDocument()
+    expect(screen.getByText(/^5$/, { selector: '.chart-readout-value' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'R$' }))
     expect(screen.getByRole('button', { name: 'R$' })).toHaveClass('active')
   })
