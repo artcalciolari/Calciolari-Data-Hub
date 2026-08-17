@@ -8,6 +8,7 @@ const ICON_NAMES: IconName[] = [
   'box',
   'upload',
   'chevron-left',
+  'chevron-right',
   'warning',
   'check',
   'copy',

@@ -36,12 +36,56 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByText(/3\.705,88/)).toBeVisible()
     await expect(page.getByText(/63,828/)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Evolução diária' })).toBeVisible()
+    await expect(page.getByRole('slider', { name: 'Evolução diária' })).toBeVisible()
+    await expect(page.getByText(/Pico .+ média/)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Top produtos' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Vendas recentes' })).toBeVisible()
     await page.getByRole('button', { name: 'Qtd' }).click()
     await expect(page.getByRole('button', { name: 'Qtd' })).toHaveClass(/active/)
     const navName = test.info().project.name === 'mobile' ? 'Navegação inferior' : 'Navegação principal'
     await expect(page.getByRole('navigation', { name: navName })).toBeVisible()
+  })
+
+  test('mobile dashboard centers the logo and leaves space before Resumo', async ({ page }) => {
+    test.skip(test.info().project.name !== 'mobile', 'mobile layout only')
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Resumo' })).toBeVisible()
+
+    const logo = page.getByRole('img', { name: /Calciolari Cucina Italiana/i })
+    const heading = page.getByRole('heading', { name: 'Resumo' })
+    const logoBox = await logo.boundingBox()
+    const headingBox = await heading.boundingBox()
+    const viewport = page.viewportSize()
+
+    expect(logoBox).toBeTruthy()
+    expect(headingBox).toBeTruthy()
+    expect(viewport).toBeTruthy()
+    expect(Math.abs(logoBox!.x + logoBox!.width / 2 - viewport!.width / 2)).toBeLessThan(24)
+    expect(headingBox!.y - (logoBox!.y + logoBox!.height)).toBeGreaterThan(24)
+
+    const fromBox = await page.getByRole('textbox', { name: 'De' }).boundingBox()
+    const toBox = await page.getByRole('textbox', { name: 'Até' }).boundingBox()
+    const filterBox = await page.getByRole('button', { name: 'Filtrar' }).boundingBox()
+    expect(fromBox).toBeTruthy()
+    expect(toBox).toBeTruthy()
+    expect(filterBox).toBeTruthy()
+    expect(toBox!.y).toBeGreaterThan(fromBox!.y + fromBox!.height)
+    expect(filterBox!.y).toBeGreaterThan(toBox!.y + toBox!.height - 8)
+  })
+
+  test('desktop dashboard leaves space between logo and Resumo', async ({ page }) => {
+    test.skip(test.info().project.name !== 'desktop', 'desktop layout only')
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Resumo' })).toBeVisible()
+
+    const logo = page.getByRole('img', { name: /Calciolari Cucina Italiana/i })
+    const heading = page.getByRole('heading', { name: 'Resumo' })
+    const logoBox = await logo.boundingBox()
+    const headingBox = await heading.boundingBox()
+    expect(logoBox).toBeTruthy()
+    expect(headingBox).toBeTruthy()
+    expect(headingBox!.y - (logoBox!.y + logoBox!.height)).toBeGreaterThan(32)
+    expect(Math.abs(headingBox!.x - logoBox!.x)).toBeLessThan(8)
   })
 
   test('dashboard has no serious or critical axe violations', async ({ page }) => {
@@ -80,7 +124,7 @@ test.describe('Calciolari Data Hub (seeded backend)', () => {
     await expect(page.getByRole('heading', { name: 'Produtos', exact: true })).toBeVisible()
     await page.getByText('MOLHO POMODORO').click()
     await expect(page.getByRole('heading', { name: 'MOLHO POMODORO' })).toBeVisible()
-    await expect(page.getByRole('img', { name: 'Série diária do produto' })).toBeVisible()
+    await expect(page.getByRole('slider', { name: 'Série diária do produto' })).toBeVisible()
   })
 
   test('imports page shows upload dropzone and history', async ({ page }) => {

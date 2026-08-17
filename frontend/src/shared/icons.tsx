@@ -5,6 +5,7 @@ import {
   Package,
   Upload,
   ChevronLeft,
+  ChevronRight,
   AlertTriangle,
   Check,
   Copy,
@@ -25,6 +26,7 @@ export type IconName =
   | 'box'
   | 'upload'
   | 'chevron-left'
+  | 'chevron-right'
   | 'warning'
   | 'check'
   | 'copy'
@@ -44,6 +46,7 @@ const ICONS: Record<IconName, ComponentType<LucideProps>> = {
   box: Package,
   upload: Upload,
   'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
   warning: AlertTriangle,
   check: Check,
   copy: Copy,
