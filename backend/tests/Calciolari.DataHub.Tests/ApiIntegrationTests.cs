@@ -310,7 +310,7 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
         Environment.SetEnvironmentVariable("DATAHUB_SECURITY_USERS",
             "viewer:v:VIEWER,importer:i:IMPORTER|VIEWER,admin:a:ADMIN|IMPORTER|VIEWER");
         Environment.SetEnvironmentVariable("DATAHUB_CORS_ALLOWED_ORIGINS", "");
-        Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "true");
+        Environment.SetEnvironmentVariable("DATAHUB_DEBUG_ENABLED", "false");
         _app = AppHost.Create(["--urls=http://127.0.0.1:0"]);
         await _app.StartAsync();
         _client = new HttpClient { BaseAddress = new Uri(_app.Urls.Single()) };
@@ -347,7 +347,8 @@ public sealed class SecurityIntegrationTests : IAsyncLifetime
 
         using var admin = Authed("admin", "a");
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/actuator/metrics")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsync("/api/debug/reset-dataset", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/debug")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync("/api/debug/reset-dataset", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync("/api/imports/files/" + Guid.NewGuid() + "/reprocess", null)).StatusCode);
 
         using var bad = Authed("viewer", "wrong");

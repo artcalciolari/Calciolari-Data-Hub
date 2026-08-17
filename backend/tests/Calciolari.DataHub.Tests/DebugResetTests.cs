@@ -76,8 +76,8 @@ public sealed class DatasetResetServiceTests
         Assert.Contains("imports.completed", json);
         metrics.RecordJobCompleted("SUCCEEDED");
         var afterOne = JsonSerializer.Serialize(metrics.Snapshot());
-        Assert.Contains("\"Value\":1", afterOne);
-        Assert.DoesNotContain("\"Value\":2", afterOne);
+        Assert.Contains("\"value\":1", afterOne);
+        Assert.DoesNotContain("\"value\":2", afterOne);
 
         var empty = service.Reset();
         Assert.Equal(0, empty.ArtifactCount);

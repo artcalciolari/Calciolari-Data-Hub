@@ -41,8 +41,8 @@ public sealed class ImportWorkerTests
         Assert.Contains("imports.completed", json);
         Assert.Contains("imports.duplicates", json);
         Assert.Contains("raw.storage.bytes", json);
-        Assert.Contains("\"Value\":1", json);
-        Assert.DoesNotContain("\"Value\":10", json);
+        Assert.Contains("\"value\":1", json);
+        Assert.DoesNotContain("\"value\":10", json);
     }
 
     [Fact]

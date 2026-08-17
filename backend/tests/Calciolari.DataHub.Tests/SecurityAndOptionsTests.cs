@@ -184,6 +184,10 @@ public sealed class SecurityAndOptionsTests
         Assert.Equal("WARNING", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("WARNING"));
         Assert.Equal("INVALID", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("INVALID"));
         Assert.Equal("FAILED", Calciolari.DataHub.Imports.Application.ImportIngestionService.MapFileStatus("FAILED"));
+        Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("PENDING"));
+        Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("PROCESSING"));
+        Assert.True(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("IMPORTED"));
+        Assert.True(Calciolari.DataHub.Imports.Application.ImportIngestionService.ShouldRecordSkippedFileMetrics("FAILED"));
 
         var now = DateTimeOffset.UtcNow;
         Assert.False(Calciolari.DataHub.Imports.Application.ImportIngestionService.HasActiveLease(null));
